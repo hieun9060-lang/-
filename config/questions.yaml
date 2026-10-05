@@ -1,0 +1,534 @@
+# 엑셀에서 자동 추출한 소비자 실제 질문 목록 (python -m aeo_monitor import-excel 로 재생성)
+# - origin: community_title = 커뮤니티 게시글 제목 원문, representative = 카테고리 대표 검색어
+# - 질문을 추가/수정해도 됩니다. 측정에서 빼려면 enabled: false
+questions:
+- id: q001
+  text: 이투스247 이천기숙학원 vs 강남대성퀘타 비교 어디가 나을까요
+  categories:
+  - 학원비교
+  origin: representative
+  views: 0
+  community: ''
+  source_url: ''
+- id: q002
+  text: 이투스247 이천기숙학원 후기 재수학원 솔직 후기
+  categories:
+  - 학원문의
+  origin: representative
+  views: 0
+  community: ''
+  source_url: ''
+- id: q003
+  text: 이투스 이천기숙학원 교재비 생활 질문
+  categories:
+  - 기타
+  origin: representative
+  views: 0
+  community: ''
+  source_url: ''
+- id: q004
+  text: 기숙학원 추천 이투스247 이천 어때요
+  categories:
+  - 학원추천
+  origin: representative
+  views: 0
+  community: ''
+  source_url: ''
+- id: q005
+  text: 이투스247 이천기숙학원 수업 방식 커리큘럼 어떤가요
+  categories:
+  - 수업
+  origin: representative
+  views: 0
+  community: ''
+  source_url: ''
+- id: q006
+  text: 이투스247 이천기숙학원 면학 분위기 어때요
+  categories:
+  - 면학분위기
+  origin: representative
+  views: 0
+  community: ''
+  source_url: ''
+- id: q007
+  text: 이투스247 이천기숙학원 시설 기숙사 어떤가요
+  categories:
+  - 시설
+  origin: representative
+  views: 0
+  community: ''
+  source_url: ''
+- id: q008
+  text: 이투스247 이천기숙학원 급식 식단 어때요
+  categories:
+  - 급식
+  origin: representative
+  views: 0
+  community: ''
+  source_url: ''
+- id: q009
+  text: 이투스247 이천기숙학원 인강 콘텐츠 코스픽
+  categories:
+  - 콘텐츠
+  origin: representative
+  views: 0
+  community: ''
+  source_url: ''
+- id: q010
+  text: 저희아들 재수학원 3일차…
+  categories:
+  - 수업
+  origin: community_title
+  views: 6522
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29386940
+- id: q011
+  text: 재수 기숙학원 고를 때 따져볼 리스트 총정리!
+  categories:
+  - TOP30
+  origin: community_title
+  views: 6146
+  community: 수만휘
+  source_url: ''
+- id: q012
+  text: 재수 학원
+  categories:
+  - 학원비교
+  - 학원추천
+  origin: community_title
+  views: 5838
+  community: 오르비
+  source_url: https://orbi.kr/00076376924
+- id: q013
+  text: 다녔던 기숙학원 장단점 정리 !! (+삼수후기
+  categories:
+  - 학원비교
+  - 수업
+  - 면학분위기
+  origin: community_title
+  views: 4355
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29253553
+- id: q014
+  text: 재수학원 솔직 후기 주세요..
+  categories:
+  - 학원비교
+  - 학원문의
+  origin: community_title
+  views: 4281
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29251938
+- id: q015
+  text: 재수기숙학원
+  categories:
+  - 학원비교
+  origin: community_title
+  views: 3871
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29358173
+- id: q016
+  text: 이투스 기숙학원 광주와 이천 차이?
+  categories:
+  - 학원비교
+  origin: community_title
+  views: 3868
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29356822
+- id: q017
+  text: 기숙학원 추천
+  categories:
+  - 학원비교
+  origin: community_title
+  views: 3684
+  community: 오르비
+  source_url: https://cafe.naver.com/suhui/29358599
+- id: q018
+  text: 기숙학원 질문 받습니당+기숙학원 생활, 성적 올리는 팁, 멘탈 질문 받아용
+  categories:
+  - 학원추천
+  - 면학분위기
+  origin: community_title
+  views: 3414
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29161685
+- id: q019
+  text: 재수학원 어디로 보내세요?
+  categories:
+  - 학원비교
+  - 학원문의
+  origin: community_title
+  views: 3148
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29190527
+- id: q020
+  text: 아들의 반수 선언.. T T
+  categories:
+  - 학원비교
+  - 기타
+  origin: community_title
+  views: 2974
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29542570
+- id: q021
+  text: 메가스터디기숙학원 vs 강남대성퀘타 vs 이투스기숙학원 핵심 포인트 비교분석
+  categories:
+  - 학원비교
+  - 학원문의
+  - 수업
+  origin: community_title
+  views: 2945
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29430866
+- id: q022
+  text: 재수 기숙 학원… 제발 도와주세요 ㅠㅠㅠㅠ
+  categories:
+  - 학원비교
+  - 학원문의
+  origin: community_title
+  views: 2797
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29215083
+- id: q023
+  text: 기숙학원 4곳을 다니며 깨달은 반수 성공의 법칙(feat. 4수생의 진심)
+  categories:
+  - 기타
+  - 학원추천
+  origin: community_title
+  views: 2732
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29540762
+- id: q024
+  text: 재수 기숙 학원 ㅠㅠㅠㅠㅠㅠ
+  categories:
+  - 학원문의
+  origin: community_title
+  views: 2251
+  community: 수만휘
+  source_url: https://naver.me/G1pM90pV
+- id: q025
+  text: 이투스247기숙과 이투스기숙은 뭐가 다른가요
+  categories:
+  - 학원문의
+  origin: community_title
+  views: 2096
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29454271
+- id: q026
+  text: 재수비용이요
+  categories:
+  - 기타
+  origin: community_title
+  views: 2004
+  community: 로물콘
+  source_url: https://cafe.naver.com/romul/303086
+- id: q027
+  text: 이투스 이천기숙 교재 안사도 되나요?
+  categories:
+  - 기타
+  - 학원추천
+  origin: community_title
+  views: 1985
+  community: 오르비
+  source_url: https://orbi.kr/00073196154
+- id: q028
+  text: 7월에 입소 가능한 기숙학원
+  categories:
+  - TOP30
+  origin: community_title
+  views: 1961
+  community: 오르비
+  source_url: ''
+- id: q029
+  text: 독학기숙학원 추천이나 후기 부탁드립니다 ..!
+  categories:
+  - 학원추천
+  origin: community_title
+  views: 1933
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29070976
+- id: q030
+  text: 반수기숙
+  categories:
+  - TOP30
+  origin: community_title
+  views: 1889
+  community: 오르비
+  source_url: ''
+- id: q031
+  text: 이투스 247 어떤가요?
+  categories:
+  - 학원문의
+  origin: community_title
+  views: 1724
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29535674
+- id: q032
+  text: 안성 이천 이투스 기숙학원 다녀보신 분..
+  categories:
+  - 학원문의
+  origin: community_title
+  views: 1655
+  community: 오르비
+  source_url: https://orbi.kr/00077171231
+- id: q033
+  text: 기숙 재수학원 추천 좀 해주세요.
+  categories:
+  - 학원문의
+  origin: community_title
+  views: 1641
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29176158
+- id: q034
+  text: 기숙 고민 (이투스247 이천 광주, 잇올 이천)
+  categories:
+  - 기타
+  - 수업
+  - 시설
+  origin: community_title
+  views: 1629
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29586923
+- id: q035
+  text: 기숙학원 고민입니다(알바 사절)
+  categories:
+  - TOP30
+  origin: community_title
+  views: 1594
+  community: 수만휘
+  source_url: ''
+- id: q036
+  text: 이천이투스랑 안성이투스 중에 어디가 더 낫나요
+  categories:
+  - TOP30
+  origin: community_title
+  views: 1585
+  community: 수만휘
+  source_url: ''
+- id: q037
+  text: 제발 기숙학원 추천 좀 해주세요ㅠㅠㅠㅠ
+  categories:
+  - 학원추천
+  origin: community_title
+  views: 1582
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29423636
+- id: q038
+  text: 기숙학원 옮겨야 할까요?
+  categories:
+  - 기타
+  origin: community_title
+  views: 1507
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29506669
+- id: q039
+  text: 06 반수 고민 (긴 글입니다ㅠ)
+  categories:
+  - 기타
+  origin: community_title
+  views: 1461
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29532622
+- id: q040
+  text: 이투스 기숙 보내신 분들 여쭈어 보아요
+  categories:
+  - 기타
+  - 시설
+  origin: community_title
+  views: 1363
+  community: 로물콘
+  source_url: https://cafe.naver.com/romul/302456
+- id: q041
+  text: 기숙학원 다녀보신분
+  categories:
+  - 학원추천
+  origin: community_title
+  views: 1321
+  community: 오르비
+  source_url: https://orbi.kr/00077655386
+- id: q042
+  text: 기숙학원 추천 부탁드립니다
+  categories:
+  - 기타
+  - 학원추천
+  - 수업
+  origin: community_title
+  views: 1306
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/28848873
+- id: q043
+  text: 안성 이투스 기숙
+  categories:
+  - 기타
+  - 수업
+  - 시설
+  - 콘텐츠
+  origin: community_title
+  views: 1302
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29422985
+- id: q044
+  text: 메가스터디종합관vs이투스기숙
+  categories:
+  - 학원추천
+  origin: community_title
+  views: 1280
+  community: 오르비
+  source_url: https://orbi.kr/00077351432
+- id: q045
+  text: 이투스247 이천
+  categories:
+  - 면학분위기
+  - 급식
+  origin: community_title
+  views: 1246
+  community: 오르비
+  source_url: https://orbi.kr/00078242976
+- id: q046
+  text: 이천 이투스 247 기숙학원 최악입니다 가지마세요
+  categories:
+  - 면학분위기
+  - 시설
+  - 급식
+  origin: community_title
+  views: 1221
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29699784
+- id: q047
+  text: 이투스 이천기숙 질문받습니다
+  categories:
+  - 학원추천
+  origin: community_title
+  views: 1185
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29406004
+- id: q048
+  text: 이투스 기숙학원 윈터스쿨 관련 질문입니다
+  categories:
+  - 면학분위기
+  origin: community_title
+  views: 1143
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29350539
+- id: q049
+  text: 기숙학원 추천해주세요
+  categories:
+  - 수업
+  - 급식
+  origin: community_title
+  views: 1095
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29434536
+- id: q050
+  text: 이투스 기숙학원 가보신 분 계신가요
+  categories:
+  - 면학분위기
+  origin: community_title
+  views: 1033
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29391220
+- id: q051
+  text: 재수하기로 했습니다 기숙학원문의드려요 수만휘/ 용비 / 이투스(광주)
+  categories:
+  - 수업
+  origin: community_title
+  views: 981
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29422414
+- id: q052
+  text: 기숙학원 고민
+  categories:
+  - 수업
+  origin: community_title
+  views: 961
+  community: 오르비
+  source_url: https://orbi.kr/00078801944
+- id: q053
+  text: 요즘에도 개빡센 기숙학원 있나요?
+  categories:
+  - 면학분위기
+  origin: community_title
+  views: 924
+  community: 오르비
+  source_url: https://orbi.kr/00076922601
+- id: q054
+  text: 이투스 이천 후기 부탁드려요 ㅠㅠ
+  categories:
+  - 수업
+  origin: community_title
+  views: 840
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29238156
+- id: q055
+  text: 기숙학원추천 받을 때 제일 먼저 보는 게 뭔가요
+  categories:
+  - 급식
+  origin: community_title
+  views: 712
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29537057
+- id: q056
+  text: 이천이나 용인 쪽 기숙학원 대기 걸어보신 분
+  categories:
+  - 시설
+  origin: community_title
+  views: 645
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29555044
+- id: q057
+  text: 이천이투스 247 다녀왔는데요
+  categories:
+  - 면학분위기
+  - 시설
+  origin: community_title
+  views: 576
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29352055
+- id: q058
+  text: 재수기숙학원 선택 시 가장 후회 없는 기준은?
+  categories:
+  - 면학분위기
+  origin: community_title
+  views: 551
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29548043
+- id: q059
+  text: 이투스247 안성기숙학원 다니신 분
+  categories:
+  - 면학분위기
+  - 시설
+  origin: community_title
+  views: 538
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29390916
+- id: q060
+  text: 이투스 광주 독재기숙 질문 받아주세요ㅜㅜ
+  categories:
+  - 시설
+  origin: community_title
+  views: 536
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29450838
+- id: q061
+  text: 이투스 기숙 이천
+  categories:
+  - 시설
+  origin: community_title
+  views: 321
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29529209
+- id: q062
+  text: 이투스 안성, 이천 어디가죠? ㅠㅠ
+  categories:
+  - 급식
+  origin: community_title
+  views: 214
+  community: 수만휘
+  source_url: https://cafe.naver.com/suhui/29604216
+- id: q063
+  text: 재수기숙학원 vs 통학 고민..
+  categories:
+  - 급식
+  origin: community_title
+  views: 26
+  community: 기타
+  source_url: https://cafe.naver.com/michiexam/6394393

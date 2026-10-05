@@ -1,0 +1,27 @@
+# 학원별 '같은 질문' 비교용 템플릿. {brand} 자리에 brands.yaml 의 template_name 이 들어갑니다.
+# 이투스247 이천과 경쟁 학원에 똑같이 물어보고, AI가 각 학원을 얼마나 알고/인용하는지 비교합니다.
+# 엑셀 9개 카테고리(학원문의·수업·면학분위기·시설·급식·콘텐츠·학원비교·기타)를 반영했습니다.
+# 비용 절감을 위해 엑셀에서 많이 언급된 학원만 기본 포함. 전체 비교는 brands: all
+brands: [etoos247_icheon, etoos247_anseong, quetta, russel, chungsol, sidae, bisang, itall]
+templates:
+  - id: review
+    text: "{brand} 실제 다녀본 사람들 후기 어때요?"
+    categories: [학원문의]
+  - id: class
+    text: "{brand} 수업 방식이랑 커리큘럼 어떤가요?"
+    categories: [수업]
+  - id: atmosphere
+    text: "{brand} 면학 분위기랑 생활 관리 빡센가요?"
+    categories: [면학분위기]
+  - id: facility
+    text: "{brand} 시설이나 기숙사 환경 괜찮나요?"
+    categories: [시설]
+  - id: meal
+    text: "{brand} 급식 맛있나요?"
+    categories: [급식]
+  - id: cost
+    text: "{brand} 재수 비용 한 달에 얼마 정도 드나요?"
+    categories: [기타]
+  - id: recommend
+    text: "재수 기숙학원 고민 중인데 {brand} 추천할 만한가요? 장단점 알려주세요"
+    categories: [학원추천, 학원비교]

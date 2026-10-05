@@ -1,0 +1,110 @@
+# 추적 대상 학원 설정
+# - aliases: 답변 텍스트에서 이 학원으로 인정하는 표기 (공백·대소문자 무시)
+# - near:    [A, B] 두 단어가 window 글자 이내에 함께 나오면 언급으로 인정 (예: "이천에 있는 이투스")
+# - near_exclude: near 판정에서 제외할 표기 (예: "이천청솔"의 "이천"은 이투스 이천이 아님)
+# - domains: 해당 학원의 공식 사이트로 분류할 URL 패턴(부분 문자열). 정확한 도메인으로 꼭 수정하세요.
+# - template_name: {brand} 질문 템플릿에 들어갈 이름 (경쟁사 동일 질문 비교용)
+
+target: etoos247_icheon
+
+# 이투스247 브랜드 공통 표기. 캠퍼스 없이 브랜드만 언급되면 "브랜드만 언급(캠퍼스 불명)"으로 집계
+target_group:
+  name: 이투스247(캠퍼스 불명)
+  aliases: [이투스247, 이투스 247, 이투스기숙, 이투스 기숙학원, 이투스기숙학원, etoos247]
+  # 이천이 아닌 이투스 캠퍼스 표기가 나오면 '캠퍼스 혼동' 신호로 기록
+  other_campus_words: [송파, 청주, 부산, 대구, 강남, 노량진, 분당, 일산, 안성, 광주, 경기광주, 용인, 수원, 대전]
+
+brands:
+  - id: etoos247_icheon
+    name: 이투스247 이천기숙학원
+    template_name: 이투스247 이천기숙학원
+    group: etoos
+    aliases: [이투스247이천, 이투스이천, 이천이투스, 이투스247 이천, 이천 이투스247, 이투스247 기숙학원 이천, 이투스 이천캠퍼스, 이투스247 이천캠퍼스]
+    near: [[이투스, 이천]]
+    near_window: 12
+    near_exclude: [이천청솔, 잇올이천, 이천잇올]
+    domains: [etoos247icheon, icheon.etoos, etoos247.com/icheon]
+
+  - id: etoos247_anseong
+    name: 이투스247 안성기숙학원
+    template_name: 이투스247 안성기숙학원
+    group: etoos
+    aliases: [이투스247안성, 이투스안성, 안성이투스, 이투스 안성캠퍼스]
+    near: [[이투스, 안성]]
+    near_window: 12
+    domains: [etoos247anseong, anseong.etoos]
+
+  - id: etoos247_gwangju
+    name: 이투스247 독학기숙(경기광주)
+    template_name: 이투스247 독학기숙학원 광주
+    group: etoos
+    aliases: [이투스독학기숙, 이투스 독학기숙, 이투스광주, 광주이투스, 이투스247광주]
+    near: [[이투스, 광주]]
+    near_window: 12
+    domains: [etoos247gwangju]
+
+  - id: quetta
+    name: 강남대성 기숙학원(퀘타)
+    template_name: 강남대성 기숙학원
+    aliases: [퀘타, 강남대성기숙, 강남대성 기숙학원, 대성기숙, 강남대성퀘타, 대성학원 기숙, quetta]
+    domains: [quetta, kndaesung, daesung]
+
+  - id: russel
+    name: 메가스터디 기숙학원(러셀)
+    template_name: 메가스터디 기숙학원
+    aliases: [러셀기숙, 메가스터디기숙, 메가스터디 기숙학원, 메가기숙, 러셀 기숙학원, 메가스터디학원 기숙]
+    domains: [megastudy, russel]
+
+  - id: chungsol
+    name: 이천 종로학원 기숙(청솔)
+    template_name: 이천 청솔 기숙학원
+    aliases: [이천청솔, 청솔기숙, 청솔학원, 종로청솔, 이천종로]
+    domains: [chungsol, jongro]
+
+  - id: jongro_m
+    name: 강남종로엠 기숙학원
+    template_name: 강남종로엠 기숙학원
+    aliases: [강남종로엠, 종로엠, 종로학원 기숙, 종로기숙]
+    domains: [jongrom, jongro.co.kr]
+
+  - id: sidae
+    name: 시대인재 기숙학원
+    template_name: 시대인재 기숙학원
+    aliases: [시대인재기숙, 시대인재 기숙, 시대인재 재수종합 기숙, 시대인재]
+    domains: [sdij]
+
+  - id: bisang
+    name: 비상에듀 기숙학원
+    template_name: 비상에듀 기숙학원
+    aliases: [비상에듀기숙, 비상에듀 기숙학원, 비상에듀, 용인비상]
+    domains: [visang, bisangedu]
+
+  - id: itall
+    name: 잇올 기숙(독학)
+    template_name: 잇올 기숙학원
+    aliases: [잇올, 잇올기숙, 잇올 스파르타]
+    domains: [itall]
+
+  - id: igang
+    name: 용인 이강학원 기숙
+    template_name: 용인 이강학원
+    aliases: [이강학원, 용인이강, 이강기숙]
+    domains: [igang]
+
+  - id: sameyung
+    name: 역사적사명 기숙학원
+    template_name: 역사적사명 기숙학원
+    aliases: [역사적사명]
+    domains: [sameyung, historicalmission]
+
+  - id: gangan
+    name: 강안교육 기숙학원
+    template_name: 강안교육 기숙학원
+    aliases: [강안교육, 강안기숙]
+    domains: [gangan]
+
+  - id: sumanhwi_dorm
+    name: 수만휘 기숙학원
+    template_name: 수만휘 기숙학원
+    aliases: [수만휘기숙, 수만휘 기숙학원]
+    domains: [sumanhwi]

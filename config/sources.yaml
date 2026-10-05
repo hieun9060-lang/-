@@ -1,0 +1,41 @@
+# AI 답변 출처(URL) 분류 규칙. 위에서부터 순서대로 첫 번째로 일치한 유형으로 분류합니다.
+# match: URL(소문자)에 포함되는 문자열. 엑셀 기준선(2026.9.29)의 사이트 유형과 같은 이름을 씁니다.
+# 공식 홈페이지 / 경쟁사 공식자료는 brands.yaml 의 domains 로 먼저 판정합니다.
+
+types:
+  - name: 자사(앱)
+    match: [apps.apple.com, play.google.com]
+    require_any: [etoos, 이투스]       # 앱스토어 URL이면서 이투스 관련일 때만
+  - name: 자사(기타 채널)
+    match: [etoos.com, etoos247, etoos.co.kr, youtube.com/@etoos, blog.naver.com/etoos]
+  - name: 네이버 블로그
+    match: [blog.naver.com, m.blog.naver.com]
+  - name: 커뮤니티(수만휘·오르비 등)
+    match: [cafe.naver.com, orbi.kr, kin.naver.com, dcinside.com, theqoo.net, clien.net, fmkorea.com, instiz.net, ppomppu.co.kr, cafe.daum.net, reddit.com, ruliweb.com, mlbpark]
+  - name: 제3자 학원정보 플랫폼
+    match: [prompie, hagwonzip, academy., gangmom, hakwon, unigo, jinhak.com, uway, kyobo, mybest, edupang]
+  - name: 언론/보도자료
+    match: [news, dhnews, chosun, joongang, joins.com, donga, hani.co.kr, khan.co.kr, mk.co.kr, hankyung, edaily, newsis, yna.co.kr, yonhap, veritas-a, eduinnews, edujin, ebn.co.kr, mt.co.kr, sedaily, fnnews, asiae, heraldcorp, nocutnews, kmib, seoul.co.kr, segye, munhwa, inews24, etnews, zdnet, dt.co.kr, ajunews, newspim, kukinews, edu.chosun, unn.net, dailian, sisajournal, ohmynews, pressian, kbs.co.kr, imbc, sbs.co.kr, jtbc, ytn.co.kr, mbn.co.kr, tvchosun, ichannela]
+  - name: 기타 블로그
+    match: [tistory.com, brunch.co.kr, velog.io, medium.com, blog.daum.net, wordpress, blogspot]
+  - name: 동영상
+    match: [youtube.com, youtu.be, tv.naver.com, tiktok.com, instagram.com]
+  - name: 위키/백과
+    match: [namu.wiki, wikipedia.org, terms.naver.com]
+
+default: 기타/무관
+
+# 엑셀 기준선 표기와 동일한 순서 (리포트 범례 순서)
+order:
+  - 공식 홈페이지(이천캠퍼스)
+  - 자사(앱)
+  - 자사(기타 채널)
+  - 커뮤니티(수만휘·오르비 등)
+  - 네이버 블로그
+  - 기타 블로그
+  - 언론/보도자료
+  - 제3자 학원정보 플랫폼
+  - 경쟁사 공식자료
+  - 동영상
+  - 위키/백과
+  - 기타/무관
