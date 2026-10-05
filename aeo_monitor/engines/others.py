@@ -14,11 +14,22 @@ from .base import SYSTEM_PROMPT, Citation, Engine, EngineResult, dedupe
 TIMEOUT = 180
 
 
+class QuotaExceeded(Exception):
+    """일일 무료 한도·크레딧 소진: 재시도해도 소용없으므로 그날은 해당 엔진을 중단."""
+
+
+_DAILY_QUOTA_HINTS = ("perday", "per_day", "per day", "insufficient_quota", "billing", "credit", "exceeded your current quota")
+
+
 def _post(url: str, retries: int = 5, **kw) -> requests.Response:
-    """429(호출 한도)·5xx 는 지수 백오프로 재시도."""
+    """429(분당 한도)·5xx 는 지수 백오프로 재시도. 일일 한도/크레딧 소진은 QuotaExceeded."""
     import time
     for attempt in range(retries + 1):
         resp = requests.post(url, timeout=TIMEOUT, **kw)
+        if resp.status_code in (402, 429):
+            body = (resp.text or "").lower().replace(" ", "")
+            if any(h.replace(" ", "") in body for h in _DAILY_QUOTA_HINTS):
+                raise QuotaExceeded(f"HTTP {resp.status_code}: {(resp.text or '')[:200]}")
         if resp.status_code not in (429, 500, 502, 503, 504) or attempt == retries:
             resp.raise_for_status()
             return resp
@@ -29,7 +40,7 @@ def _post(url: str, retries: int = 5, **kw) -> requests.Response:
 
 class OpenAIEngine(Engine):
     name = "chatgpt"
-    default_model = os.environ.get("OPENAI_MODEL", "gpt-5")
+    default_model = os.environ.get("OPENAI_MODEL", "gpt-5-mini")
 
     @classmethod
     def available(cls) -> bool:
@@ -38,7 +49,7 @@ class OpenAIEngine(Engine):
     def ask(self, question: str) -> EngineResult:
         r = EngineResult(self.name, self.model)
         try:
-            resp = requests.post(
+            resp = _post(
                 "https://api.openai.com/v1/responses",
                 headers={"Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}"},
                 json={
@@ -48,10 +59,11 @@ class OpenAIEngine(Engine):
                     "tools": [{"type": "web_search", "user_location": {"type": "approximate", "country": "KR"}}],
                     "include": ["web_search_call.action.sources"],
                 },
-                timeout=TIMEOUT,
             )
-            resp.raise_for_status()
             data = resp.json()
+        except QuotaExceeded as e:
+            r.error = f"quota: {e}"
+            return r
         except requests.RequestException as e:
             r.error = f"openai: {e}"
             return r
@@ -94,6 +106,9 @@ class GeminiEngine(Engine):
                 },
             )
             data = resp.json()
+        except QuotaExceeded as e:
+            r.error = f"quota: {e}"
+            return r
         except requests.RequestException as e:
             r.error = f"gemini: {e}"
             return r
@@ -124,7 +139,7 @@ class PerplexityEngine(Engine):
     def ask(self, question: str) -> EngineResult:
         r = EngineResult(self.name, self.model)
         try:
-            resp = requests.post(
+            resp = _post(
                 "https://api.perplexity.ai/chat/completions",
                 headers={"Authorization": f"Bearer {os.environ['PERPLEXITY_API_KEY']}"},
                 json={
@@ -134,10 +149,11 @@ class PerplexityEngine(Engine):
                         {"role": "user", "content": question},
                     ],
                 },
-                timeout=TIMEOUT,
             )
-            resp.raise_for_status()
             data = resp.json()
+        except QuotaExceeded as e:
+            r.error = f"quota: {e}"
+            return r
         except requests.RequestException as e:
             r.error = f"perplexity: {e}"
             return r

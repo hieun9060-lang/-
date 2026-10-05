@@ -161,18 +161,36 @@ def diagnose(resp: dict, brands: BrandConfig) -> list[str]:
     return codes
 
 
-def load_run(store: Store, run_id: int) -> list[dict]:
-    resps = {r["id"]: dict(r) for r in store.responses(run_id)}
+def _hydrate(rows, mentions, citations) -> list[dict]:
+    resps = {r["id"]: dict(r) for r in rows}
     for r in resps.values():
         r["categories"] = json.loads(r["categories"] or "[]")
         r["other_campus"] = json.loads(r["other_campus"] or "[]")
         r["mentions"] = {}
         r["citations"] = []
-    for m in store.mentions(run_id):
+    for m in mentions:
         resps[m["response_id"]]["mentions"][m["brand_id"]] = dict(m)
-    for c in store.citations(run_id):
+    for c in citations:
         resps[c["response_id"]]["citations"].append(dict(c))
     return list(resps.values())
+
+
+def load_run(store: Store, run_id: int) -> list[dict]:
+    return _hydrate(store.responses(run_id), store.mentions(run_id), store.citations(run_id))
+
+
+def load_window(store: Store, run: dict, days: int) -> list[dict]:
+    """최근 days 일 동안 (질문, 엔진)별 최신 답변."""
+    end = date.fromisoformat(run["run_date"])
+    ids = store.window_response_ids((end - timedelta(days=days - 1)).isoformat(), end.isoformat(), run["demo"])
+    return _hydrate(store.responses_by_ids(ids), store.mentions_by_ids(ids), store.citations_by_ids(ids))
+
+
+def _trend_subset(resps: list[dict]) -> list[dict]:
+    """추이·전일 대비는 매일 같은 고정 질문(panel)으로 비교. 고정 질문이 없으면 전체."""
+    core = [r for r in resps if r["origin"] != "template"]
+    panel = [r for r in core if r.get("panel")]
+    return panel or core
 
 
 def _target_rate(resps: list[dict], target_id: str) -> tuple[int, int]:
@@ -182,9 +200,10 @@ def _target_rate(resps: list[dict], target_id: str) -> tuple[int, int]:
 
 
 def analyze_run(store: Store, run_id: int, brands: BrandConfig, baseline: dict | None = None,
-                trend_days: int = 14) -> dict:
+                trend_days: int = 14, window_days: int = 1) -> dict:
     run = dict(store.conn.execute("SELECT * FROM runs WHERE id=?", (run_id,)).fetchone())
-    resps = load_run(store, run_id)
+    today = load_run(store, run_id)
+    resps = load_window(store, run, window_days) if window_days > 1 else today
     tid = brands.target_id
     for r in resps:
         r["reasons"] = diagnose(r, brands)
@@ -362,17 +381,33 @@ def analyze_run(store: Store, run_id: int, brands: BrandConfig, baseline: dict |
             q["engines"][r["engine"]] = entry
     question_rows = sorted(questions.values(), key=lambda q: (sum(e["mentioned"] for e in q["engines"].values()), q["question"]))
 
-    # 전일 대비 / 추이
+    # 오늘 측정분 (고정 질문 기준) / 엔진 상태
+    t_sub = _trend_subset(today)
+    th0, tn0 = _target_rate(t_sub, tid)
+    kpi["today_rate"], kpi["today_hit"], kpi["today_n"] = _pct(th0, tn0), th0, tn0
+    kpi["today_basis"] = "고정 질문" if any(r.get("panel") for r in t_sub) else "오늘 질문"
+    kpi["window_days"] = window_days
+    kpi["questions_covered"] = len({r["question_id"] for r in valid_core})
+    status = {}
+    for r in today:
+        st = status.setdefault(r["engine"], {"answered": 0, "errors": 0, "last_error": ""})
+        if r["answer"]:
+            st["answered"] += 1
+        elif r["error"]:
+            st["errors"] += 1
+            st["last_error"] = r["error"][:160]
+    kpi["engine_status"] = status
+
+    # 전일 대비 / 추이 (고정 질문)
     prev = store.previous_run(store.conn.execute("SELECT * FROM runs WHERE id=?", (run_id,)).fetchone())
     delta = None
     if prev:
-        p_core = [r for r in load_run(store, prev["id"]) if r["origin"] != "template"]
-        ph, pn = _target_rate(p_core, tid)
-        delta = {"date": prev["run_date"], "rate": _pct(ph, pn), "diff": round(kpi["target_rate"] - _pct(ph, pn), 1)}
+        ph, pn = _target_rate(_trend_subset(load_run(store, prev["id"])), tid)
+        delta = {"date": prev["run_date"], "rate": _pct(ph, pn), "diff": round(kpi["today_rate"] - _pct(ph, pn), 1)}
     end = date.fromisoformat(run["run_date"])
     trend = []
     for tr in store.runs_between((end - timedelta(days=trend_days - 1)).isoformat(), end.isoformat(), run["demo"]):
-        t_core = [r for r in load_run(store, tr["id"]) if r["origin"] != "template"]
+        t_core = _trend_subset(load_run(store, tr["id"]))
         th, tn = _target_rate(t_core, tid)
         per_engine = {}
         for e in {r["engine"] for r in t_core}:

@@ -1,8 +1,25 @@
-# 일일 측정 설정
-engines: [gemini]      # 사용할 엔진. 다른 엔진도 쓰려면 추가 (claude, chatgpt, gemini, perplexity). 비우면 키가 있는 엔진 모두
-models: {gemini: gemini-2.5-flash}   # Gemini 모델을 바꾸려면 여기 수정 (예: gemini-2.5-pro)
-samples_per_question: 1  # AI 답변은 매번 달라지므로 2~3으로 올리면 더 안정적 (비용 비례 증가)
-concurrency: 3       # Gemini 호출 한도(429)에 걸리면 낮추세요
-include_templates: true  # 학원별 동일 질문 비교 포함 여부
+# 일일 측정 설정 — 무료(체험) 한도 안에서 돌도록 맞춘 기본값
+engines: [gemini, chatgpt, claude]   # API 키가 없는 엔진은 건너뜀
+models:
+  gemini: gemini-2.5-flash     # Google AI Studio 무료 등급 (구글 검색 그라운딩 포함)
+  chatgpt: gpt-5-mini          # 가장 저렴한 웹검색 지원 모델
+  claude: claude-haiku-4-5     # 가장 저렴한 Claude 모델
+
+# 하루에 엔진마다 묻는 질문 수 (세 엔진 모두 같은 질문을 받음)
+#  = 매일 고정 질문(panel) + 나머지를 날짜별로 돌아가며(rotation)
+# 하루 호출 수: Gemini 10 + 해설 1 = 11회, ChatGPT 10회, Claude 10회
+daily_questions: 10
+
+# 매일 같은 질문 → 날짜별 추이·전일 대비 비교에 사용 (브랜드 질문 2 + 일반 질문 2)
+panel_questions: [q001, q002, q017, q019]
+
+# 나머지 질문은 날짜별로 돌아가며 측정. 리포트의 누적 지표는 최근 window_days 일의 질문별 최신 답변 기준
+# auto = 전체 질문이 한 바퀴 도는 기간 (현재 59개 ÷ 하루 6개 = 10일)
+window_days: auto
+
+samples_per_question: 1
+concurrency: 2           # 무료 등급 분당 한도에 걸리지 않도록 낮게
+include_templates: false # 학원별 동일 질문(템플릿)은 호출 수가 많아 무료 모드에서는 끔
 trend_days: 14
-ai_insight: true       # 오늘 결과 해설 문단 생성 (Gemini 키 사용, Claude 키가 있으면 Claude 우선)
+ai_insight: true         # 해설은 무료인 Gemini 로 작성 (insight_engine 으로 변경 가능)
+insight_engine: gemini

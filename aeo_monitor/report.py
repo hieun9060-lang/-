@@ -57,7 +57,7 @@ main{max-width:1180px;margin:0 auto;padding:24px 16px 64px}
 h1{font-size:24px;margin:0 0 4px}h2{font-size:18px;margin:36px 0 12px}h3{font-size:15px;margin:18px 0 8px;color:var(--text2)}
 .sub{color:var(--text2);font-size:13px}.demo{background:#fab219;color:#000;padding:8px 12px;border-radius:8px;margin:12px 0;font-weight:600}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px}
-.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(165px,1fr))}
 .tile .label{font-size:13px;color:var(--text2)}.tile .val{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums}
 .tile .note{font-size:12px;color:var(--muted)}.up{color:var(--good)}.down{color:var(--critical)}
 .cols{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
@@ -181,8 +181,10 @@ def render_html(a: dict, briefing_rule: list[str], briefing_ai: str, ai_by: str 
 
     tiles = f"""
 <div class="grid">
- <div class="card tile"><div class="label">이천캠퍼스 언급률</div><div class="val">{k['target_rate']}%</div>{delta_html}
-  <div class="note">{k['target_mentions']} / {k['core_responses']} 답변</div></div>
+ <div class="card tile"><div class="label">오늘 언급률 ({e(k.get('today_basis', '오늘'))})</div><div class="val">{k.get('today_rate', k['target_rate'])}%</div>{delta_html}
+  <div class="note">{k.get('today_hit', k['target_mentions'])} / {k.get('today_n', k['core_responses'])} 답변</div></div>
+ <div class="card tile"><div class="label">누적 언급률 (최근 {k.get('window_days', 1)}일)</div><div class="val">{k['target_rate']}%</div>
+  <div class="note">질문 {k.get('questions_covered', 0)}개 · {k['target_mentions']} / {k['core_responses']} 답변 (질문·엔진별 최신)</div></div>
  <div class="card tile"><div class="label">'이투스247'만 언급 (캠퍼스 불명)</div><div class="val">{k['brand_only_rate']}%</div>
   <div class="note">{k['brand_only']}건 · 타 캠퍼스 혼동 신호 {k['campus_confusion']}건</div></div>
  <div class="card tile"><div class="label">공식 홈페이지 출처 인용률</div><div class="val">{k['official_cited_rate']}%</div>
@@ -276,16 +278,23 @@ def render_html(a: dict, briefing_rule: list[str], briefing_ai: str, ai_by: str 
 
     demo = '<div class="demo">DEMO — 모의 엔진으로 생성한 예시입니다. 실제 AI 측정값이 아닙니다.</div>' if run["demo"] else ""
     eng_list = ", ".join(json.loads(run["engines"]))
+    status_line = " · ".join(
+        f"{ENGINE_LABEL.get(n, n)} {st['answered']}건" + (f" (오류 {st['errors']})" if st["errors"] else "")
+        for n, st in sorted(k.get("engine_status", {}).items())) or "-"
+    quota_notes = "".join(
+        f'<div class="demo" style="background:#fbe3d6">{e(ENGINE_LABEL.get(n, n))}: 오늘 {st["errors"]}건 실패 — {e(st["last_error"])}</div>'
+        for n, st in sorted(k.get("engine_status", {}).items()) if st["errors"] and not st["answered"])
 
     return f"""<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>AI 언급 모니터 {e(run['run_date'])}</title><style>{CSS}</style>{THEME_JS}</head><body><main>
 <button class="toggle" onclick="toggleTheme()">라이트/다크</button>
 <h1>{e(a['target'])} · AI 챗봇 언급 리포트</h1>
-<div class="sub">측정일 {e(run['run_date'])} (KST) · 엔진 {e(eng_list)} · 응답 {k['responses']}건 (오류 {k['errors']})</div>
-{demo}
+<div class="sub">측정일 {e(run['run_date'])} (KST) · 엔진 {e(eng_list)} · 오늘 {e(status_line)}</div>
+<div class="sub">아래 지표는 최근 {k.get('window_days', 1)}일 동안 질문·엔진별 가장 최근 답변을 모은 누적 기준입니다 (무료 한도 때문에 질문을 날짜별로 나눠 측정).</div>
+{demo}{quota_notes}
 <h2>오늘의 핵심</h2><div class="card">{brief}</div>
 <h2>핵심 지표</h2>{tiles}
-<h2>언급률 추이 (최근 {len(a['trend'])}회)</h2><div class="card">{_sparkline(a['trend'])}</div>
+<h2>언급률 추이 — 매일 같은 고정 질문 기준 (최근 {len(a['trend'])}회)</h2><div class="card">{_sparkline(a['trend'])}</div>
 <h2>어떤 질문에서 언급되나</h2>
 <div class="cols">
  <div class="card"><h3>AI 엔진별</h3>{rate_rows(a['by_engine'], lambda r: ENGINE_LABEL.get(r['key'], r['key']))}</div>
@@ -324,8 +333,12 @@ def render_markdown(a: dict, briefing_rule: list[str], briefing_ai: str, report_
     lines += [f"- {x}" for x in briefing_rule]
     if briefing_ai:
         lines += ["", "### AI 해설", briefing_ai]
-    lines += ["", "### 엔진별 언급률", "| 엔진 | 언급률 | 언급/답변 |", "|---|---|---|"]
+    lines += ["", f"### 엔진별 언급률 (최근 {k.get('window_days', 1)}일 누적)", "| 엔진 | 언급률 | 언급/답변 |", "|---|---|---|"]
     lines += [f"| {ENGINE_LABEL.get(r['key'], r['key'])} | {r['rate']}% | {r['hit']}/{r['n']} |" for r in a["by_engine"]]
+    fails = [f"{ENGINE_LABEL.get(n, n)}: {st['last_error'][:100]}" for n, st in sorted(k.get("engine_status", {}).items())
+             if st["errors"] and not st["answered"]]
+    if fails:
+        lines += ["", "> ⚠️ 오늘 응답 실패: " + " / ".join(fails)]
     lines += ["", "### 경쟁 학원 언급률 (상위 8)", "| 학원 | 언급률 | 1순위 |", "|---|---|---|"]
     lines += [f"| {'**' + s['name'] + '**' if s['is_target'] else s['name']} | {s['rate']}% | {s['first']} |" for s in a["sov"][:8]]
     lines += ["", "### 우선 개선과제"]

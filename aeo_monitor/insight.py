@@ -16,12 +16,16 @@ SYSTEM = (
 
 def rule_based(a: dict) -> list[str]:
     k = a["kpi"]
-    out = [f"실제 소비자 질문 {k['core_responses']}건 답변 중 **{a['target']}** 언급 {k['target_mentions']}건 "
-           f"(**{k['target_rate']}%**)."]
+    out = []
+    if "today_rate" in k:
+        out.append(f"오늘 {k['today_basis']} 답변 {k['today_n']}건 중 **{a['target']}** 언급 {k['today_hit']}건 "
+                   f"(**{k['today_rate']}%**).")
     if a.get("delta"):
         d = a["delta"]
         arrow = "▲" if d["diff"] > 0 else ("▼" if d["diff"] < 0 else "–")
         out.append(f"전 측정일({d['date']}) {d['rate']}% 대비 {arrow} {abs(d['diff'])}%p.")
+    out.append(f"최근 {k.get('window_days', 1)}일 누적: 질문 {k.get('questions_covered', 0)}개 · 답변 {k['core_responses']}건 중 "
+               f"{k['target_mentions']}건 언급 (**{k['target_rate']}%**).")
     if k["brand_only"]:
         out.append(f"'이투스247'만 언급되고 이천캠퍼스는 빠진 답변 {k['brand_only']}건 — 캠퍼스 혼동/엔티티 불명확.")
     leader = next((s for s in a["sov"] if s["mentions"]), None)
@@ -56,17 +60,25 @@ def compact_for_llm(a: dict) -> dict:
     }
 
 
-def ai_briefing(a: dict, models: dict | None = None) -> tuple[str, str]:
-    """(해설, 작성 엔진명). Claude 키가 있으면 Claude, 없으면 Gemini. 실패해도 리포트는 규칙 기반으로 생성."""
+def ai_briefing(a: dict, models: dict | None = None, prefer: str = "gemini") -> tuple[str, str]:
+    """(해설, 작성 엔진명). 기본은 무료인 Gemini, 없으면 Claude. 실패해도 리포트는 규칙 기반으로 생성."""
+    from .engines.claude import ClaudeEngine, complete_text
+    from .engines.others import GeminiEngine, gemini_complete_text
     models = models or {}
     prompt = f"오늘 측정 결과(JSON):\n{json.dumps(compact_for_llm(a), ensure_ascii=False)}"
-    try:
-        from .engines.claude import ClaudeEngine, complete_text
-        from .engines.others import GeminiEngine, gemini_complete_text
-        if ClaudeEngine.available():
-            return complete_text(prompt, SYSTEM, models.get("claude")), "Claude"
-        if GeminiEngine.available():
-            return gemini_complete_text(prompt, SYSTEM, models.get("gemini")), "Gemini"
-    except Exception as e:  # noqa: BLE001
-        log.warning("AI 브리핑 생성 실패: %s", e)
+    writers = {
+        "gemini": (GeminiEngine, lambda: gemini_complete_text(prompt, SYSTEM, models.get("gemini")), "Gemini"),
+        "claude": (ClaudeEngine, lambda: complete_text(prompt, SYSTEM, models.get("claude")), "Claude"),
+    }
+    order = [prefer] + [k for k in writers if k != prefer]
+    for key in order:
+        cls, fn, label = writers.get(key, (None, None, None))
+        if not cls or not cls.available():
+            continue
+        try:
+            text = fn()
+            if text:
+                return text, label
+        except Exception as e:  # noqa: BLE001
+            log.warning("AI 해설(%s) 생성 실패: %s", label, e)
     return "", ""

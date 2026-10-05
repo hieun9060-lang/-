@@ -61,6 +61,7 @@ class Question:
     views: int = 0
     source_url: str = ""
     enabled: bool = True
+    panel: bool = False  # 매일 고정 질문 여부
 
 
 def _load_yaml(name: str) -> dict:

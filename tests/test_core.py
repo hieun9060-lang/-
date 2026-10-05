@@ -147,5 +147,76 @@ def test_gemini_engine_parsing(monkeypatch):
     assert dom == "orbi.kr" and CL.classify(url) == "커뮤니티(수만휘·오르비 등)"
 
 
-def test_settings_use_gemini_only():
-    assert config.load_settings()["engines"] == ["gemini"]
+def test_settings_three_engines_free_budget():
+    st = config.load_settings()
+    assert st["engines"] == ["gemini", "chatgpt", "claude"]
+    assert st["daily_questions"] <= 10
+
+
+def test_daily_selection_panel_and_rotation_covers_all():
+    from datetime import date, timedelta
+    from aeo_monitor.schedule import cycle_days, select_daily
+    st = config.load_settings()
+    qs = [q for q in config.load_questions(BR) if q.origin != "template"]
+    days = cycle_days(st, qs)
+    seen = set()
+    d0 = date(2026, 10, 6)
+    for i in range(days):
+        picked = select_daily(config.load_questions(BR)[: len(qs)], st, (d0 + timedelta(days=i)).isoformat())
+        assert len(picked) == st["daily_questions"]
+        assert {q.id for q in picked if q.panel} == set(st["panel_questions"])
+        seen |= {q.id for q in picked}
+    assert seen == {q.id for q in qs}  # 한 주기 안에 모든 질문을 한 번 이상 측정
+
+
+def test_quota_stops_engine_for_the_day(tmp_path):
+    from aeo_monitor.collect import run_collection
+    from aeo_monitor.engines import EngineResult, MockEngine
+    from aeo_monitor.storage import Store
+
+    class Broke(MockEngine):
+        name = "claude"
+        calls = 0
+
+        def ask(self, q):
+            Broke.calls += 1
+            return EngineResult("claude", "x", error="quota: 크레딧 소진")
+
+    qs = [q for q in config.load_questions(BR) if q.origin != "template"][:6]
+    store = Store(tmp_path / "t.db")
+    run_collection(store, [Broke()], qs, BR, CL, concurrency=1, run_date="2026-10-06")
+    assert Broke.calls == 1
+    errs = [r["error"] for r in store.responses(1)]
+    assert sum(e.startswith("skipped") for e in errs) == 5
+
+
+def test_gemini_daily_quota_not_retried(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "x")
+    from aeo_monitor.engines import others
+    calls = []
+
+    class R:
+        status_code = 429
+        headers: dict = {}
+        text = '{"error": {"status": "RESOURCE_EXHAUSTED", "details": [{"quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier"}]}}'
+
+    monkeypatch.setattr(others.requests, "post", lambda *a, **k: calls.append(1) or R())
+    r = others.GeminiEngine().ask("q")
+    assert r.error.startswith("quota:") and len(calls) == 1
+
+
+def test_claude_haiku_uses_basic_web_search(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test")
+    from aeo_monitor.engines.claude import ClaudeEngine
+    eng = ClaudeEngine("claude-haiku-4-5")
+    seen = {}
+
+    def create(**kw):
+        seen.update(kw)
+        return SimpleNamespace(content=[SimpleNamespace(type="text", text="답", citations=None)],
+                               stop_reason="end_turn", model="claude-haiku-4-5")
+
+    eng.client = SimpleNamespace(beta=SimpleNamespace(messages=SimpleNamespace(create=create)))
+    assert eng.ask("q").answer == "답"
+    assert seen["tools"][0]["type"] == "web_search_20250305"
+    assert "output_config" not in seen and "fallbacks" not in seen

@@ -29,7 +29,8 @@ CREATE TABLE IF NOT EXISTS responses (
   answer TEXT,
   error TEXT,
   group_only INTEGER DEFAULT 0,    -- 이투스247 브랜드만 언급(캠퍼스 불명)
-  other_campus TEXT                -- JSON list, 캠퍼스 혼동 신호
+  other_campus TEXT,               -- JSON list, 캠퍼스 혼동 신호
+  panel INTEGER DEFAULT 0          -- 매일 고정 질문
 );
 CREATE TABLE IF NOT EXISTS mentions (
   response_id INTEGER NOT NULL REFERENCES responses(id),
@@ -61,6 +62,10 @@ class Store:
         self.conn = sqlite3.connect(path)
         self.conn.row_factory = sqlite3.Row
         self.conn.executescript(SCHEMA)
+        cols = {r[1] for r in self.conn.execute("PRAGMA table_info(responses)")}
+        if "panel" not in cols:  # 이전 버전 DB
+            self.conn.execute("ALTER TABLE responses ADD COLUMN panel INTEGER DEFAULT 0")
+            self.conn.commit()
 
     def new_run(self, run_date: str, started_at: str, engines: list[str], demo: bool) -> int:
         cur = self.conn.execute(
@@ -74,12 +79,12 @@ class Store:
                      error: str, group_info: dict, mentions: dict, citations: list[dict]) -> int:
         cur = self.conn.execute(
             """INSERT INTO responses(run_id, question_id, question, categories, origin, branded, brand_scope,
-               template_id, engine, model, sample, answer, error, group_only, other_campus)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+               template_id, engine, model, sample, answer, error, group_only, other_campus, panel)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (run_id, q.id, q.text, json.dumps(q.categories, ensure_ascii=False), q.origin, int(q.branded),
              q.brand_scope, q.template_id, engine, model, sample, answer, error,
              int(group_info.get("brand_only", False)),
-             json.dumps(group_info.get("other_campus", []), ensure_ascii=False)),
+             json.dumps(group_info.get("other_campus", []), ensure_ascii=False), int(getattr(q, "panel", False))),
         )
         rid = cur.lastrowid
         self.conn.executemany(
@@ -115,6 +120,40 @@ class Store:
                ORDER BY run_date""",
             (start, end, demo),
         ).fetchall()
+
+    def window_response_ids(self, start: str, end: str, demo: int) -> list[int]:
+        """기간 내 (질문, 엔진)별 가장 최근 정상 답변. 오늘 오류가 났으면 그 전 정상 답변을 사용."""
+        rows = self.conn.execute(
+            """SELECT r.id, r.question_id, r.engine, r.answer, r.error, ru.run_date
+               FROM responses r JOIN runs ru ON ru.id = r.run_id
+               WHERE ru.run_date BETWEEN ? AND ? AND ru.demo = ?
+               ORDER BY ru.run_date DESC, r.id DESC""", (start, end, demo)).fetchall()
+        best: dict[tuple, int] = {}
+        fallback: dict[tuple, int] = {}
+        for r in rows:
+            key = (r["question_id"], r["engine"])
+            if r["answer"] and key not in best:
+                best[key] = r["id"]
+            fallback.setdefault(key, r["id"])
+        return sorted({**fallback, **best}.values())
+
+    def responses_by_ids(self, ids: list[int]) -> list[sqlite3.Row]:
+        if not ids:
+            return []
+        q = ",".join("?" * len(ids))
+        return self.conn.execute(f"SELECT * FROM responses WHERE id IN ({q}) ORDER BY id", ids).fetchall()
+
+    def mentions_by_ids(self, ids: list[int]) -> list[sqlite3.Row]:
+        if not ids:
+            return []
+        q = ",".join("?" * len(ids))
+        return self.conn.execute(f"SELECT * FROM mentions WHERE response_id IN ({q})", ids).fetchall()
+
+    def citations_by_ids(self, ids: list[int]) -> list[sqlite3.Row]:
+        if not ids:
+            return []
+        q = ",".join("?" * len(ids))
+        return self.conn.execute(f"SELECT * FROM citations WHERE response_id IN ({q})", ids).fetchall()
 
     def responses(self, run_id: int) -> list[sqlite3.Row]:
         return self.conn.execute("SELECT * FROM responses WHERE run_id=? ORDER BY id", (run_id,)).fetchall()

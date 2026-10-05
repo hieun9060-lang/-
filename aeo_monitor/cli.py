@@ -21,6 +21,7 @@ from .collect import run_collection, today_kst
 from .engines import build_engines
 from .insight import ai_briefing, rule_based
 from .report import write_reports
+from .schedule import select_daily, window_days
 from .sources import SourceClassifier
 from .storage import Store
 
@@ -48,36 +49,52 @@ def _site_url() -> str:
 
 def build_report(store: Store, run_id: int, settings: dict) -> dict:
     brands = config.load_brands()
-    a = analyze_run(store, run_id, brands, _baseline(), settings.get("trend_days", 14))
+    questions = _all_questions(settings, brands)
+    a = analyze_run(store, run_id, brands, _baseline(), settings.get("trend_days", 14),
+                    window_days(settings, questions))
     rules = rule_based(a)
     ai, ai_by = ("", "")
     if settings.get("ai_insight", True) and not a["run"]["demo"]:
-        ai, ai_by = ai_briefing(a, settings.get("models"))
+        ai, ai_by = ai_briefing(a, settings.get("models"), settings.get("insight_engine", "gemini"))
     out = write_reports(store, a, rules, ai, config.DOCS_DIR, _site_url(), ai_by)
     log.info("리포트: %s", out["html"])
     return out
 
 
+def _all_questions(settings: dict, brands) -> list:
+    questions = config.load_questions(brands)
+    if not settings.get("include_templates", True):
+        questions = [q for q in questions if q.origin != "template"]
+    return questions
+
+
 def cmd_run(args) -> int:
     settings = config.load_settings()
     names = args.engines.split(",") if args.engines else settings.get("engines") or None
+    if args.daily is not None:
+        settings["daily_questions"] = args.daily
     engines = build_engines(names, settings.get("models"))
     if not engines:
-        log.error("실행할 엔진이 없습니다. ANTHROPIC_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY / PERPLEXITY_API_KEY 중 "
+        log.error("실행할 엔진이 없습니다. GEMINI_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY 중 "
                   "하나 이상을 설정하거나 --engines mock 으로 데모를 실행하세요.")
         return 2
+    log.info("엔진: %s", ", ".join(f"{e.name}({e.model})" for e in engines))
     brands = config.load_brands()
-    questions = config.load_questions(brands)
-    if not settings.get("include_templates", True) or args.no_templates:
-        questions = [q for q in questions if q.origin != "template"]
+    if args.no_templates:
+        settings["include_templates"] = False
+    questions = _all_questions(settings, brands)
+    run_date = args.date or today_kst()
+    questions = select_daily(questions, settings, run_date)
     if args.limit:
         questions = questions[: args.limit]
+    log.info("오늘 질문 %d개 (고정 %d · 순환 %d)", len(questions),
+             sum(q.panel for q in questions), sum(not q.panel for q in questions))
     demo = any(e.name == "mock" for e in engines)
     store = Store(_db_path(demo))
     classifier = SourceClassifier(config.load_source_rules(), brands)
     run_id = run_collection(store, engines, questions, brands, classifier,
                             samples=args.samples or settings.get("samples_per_question", 1),
-                            concurrency=settings.get("concurrency", 4), run_date=args.date)
+                            concurrency=settings.get("concurrency", 2), run_date=run_date)
     out = build_report(store, run_id, settings)
     print(out["html"])
     return 0
@@ -122,6 +139,7 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--engines", help="쉼표 구분: claude,chatgpt,gemini,perplexity,mock")
     r.add_argument("--samples", type=int, help="질문당 반복 횟수")
     r.add_argument("--limit", type=int, help="질문 수 제한(시험용)")
+    r.add_argument("--daily", type=int, help="하루 질문 수 (settings.yaml 의 daily_questions 덮어쓰기, 0 = 전체)")
     r.add_argument("--date", help="측정일 지정 YYYY-MM-DD (기본: 오늘 KST)")
     r.add_argument("--no-templates", action="store_true", help="학원별 동일 질문 제외")
     r.set_defaults(fn=cmd_run)

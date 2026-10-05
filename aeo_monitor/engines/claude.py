@@ -8,6 +8,27 @@ import anthropic
 from .base import SYSTEM_PROMPT, Citation, Engine, EngineResult, dedupe
 
 
+# 동적 필터링 웹검색(web_search_20260209)·effort·fallbacks 를 지원하지 않는 저가/구형 모델
+_BASIC_MODELS = ("claude-haiku-4-5", "claude-sonnet-4-5", "claude-opus-4-5", "claude-opus-4-1")
+
+
+def _is_basic(model: str) -> bool:
+    return model.startswith(_BASIC_MODELS)
+
+
+def _extra_params(model: str) -> dict:
+    if _is_basic(model):
+        return {}
+    return {"output_config": {"effort": "medium"}, "betas": ["server-side-fallback-2026-07-01"], "fallbacks": "default"}
+
+
+def _quota_error(e: anthropic.APIStatusError) -> str:
+    msg = str(e.message)
+    if e.status_code == 402 or "credit balance" in msg.lower() or "billing" in msg.lower():
+        return f"quota: 크레딧 소진 ({msg[:120]})"
+    return f"api_error {e.status_code}: {msg}"
+
+
 class ClaudeEngine(Engine):
     name = "claude"
     default_model = os.environ.get("CLAUDE_MODEL", "claude-opus-5-5")
@@ -24,7 +45,7 @@ class ClaudeEngine(Engine):
         result = EngineResult(self.name, self.model)
         messages: list = [{"role": "user", "content": question}]
         tools = [{
-            "type": "web_search_20260209",
+            "type": "web_search_20250305" if _is_basic(self.model) else "web_search_20260209",
             "name": "web_search",
             "max_uses": 5,
             "user_location": {"type": "approximate", "country": "KR", "timezone": "Asia/Seoul"},
@@ -41,9 +62,7 @@ class ClaudeEngine(Engine):
                     system=SYSTEM_PROMPT,
                     messages=messages,
                     tools=tools,
-                    output_config={"effort": "medium"},
-                    betas=["server-side-fallback-2026-07-01"],
-                    fallbacks="default",
+                    **_extra_params(self.model),
                 )
                 result.model = resp.model
                 for block in resp.content:
@@ -71,7 +90,7 @@ class ClaudeEngine(Engine):
         except anthropic.RateLimitError as e:
             result.error = f"rate_limit: {e}"
         except anthropic.APIStatusError as e:
-            result.error = f"api_error {e.status_code}: {e.message}"
+            result.error = _quota_error(e)
         except anthropic.APIConnectionError as e:
             result.error = f"connection_error: {e}"
         result.answer = "".join(texts).strip()
@@ -82,14 +101,13 @@ class ClaudeEngine(Engine):
 def complete_text(prompt: str, system: str, model: str | None = None, max_tokens: int = 16000) -> str:
     """인사이트 요약용 단순 호출 (웹검색 없음)."""
     client = anthropic.Anthropic()
+    model = model or ClaudeEngine.default_model
     resp = client.beta.messages.create(
-        model=model or ClaudeEngine.default_model,
+        model=model,
         max_tokens=max_tokens,
         system=system,
         messages=[{"role": "user", "content": prompt}],
-        output_config={"effort": "medium"},
-        betas=["server-side-fallback-2026-07-01"],
-        fallbacks="default",
+        **_extra_params(model),
     )
     if resp.stop_reason == "refusal":
         return ""

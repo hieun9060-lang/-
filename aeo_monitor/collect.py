@@ -48,12 +48,20 @@ def run_collection(store: Store, engines: list[Engine], questions: list[Question
     log.info("run %s: %d questions × %d engines × %d samples = %d calls",
              run_id, len(questions), len(engines), samples, len(jobs))
 
+    exhausted: dict[str, str] = {}  # 일일 한도/크레딧 소진된 엔진 → 그날 남은 호출 생략
+
     def work(job):
         q, e, s = job
+        if e.name in exhausted:
+            return job, EngineResult(e.name, e.model, error=f"skipped: 한도 소진으로 생략 ({exhausted[e.name][:80]})")
         try:
-            return job, e.ask(q.text)
+            res = e.ask(q.text)
         except Exception as exc:  # 한 건 실패가 전체 실행을 멈추지 않도록
-            return job, EngineResult(e.name, e.model, error=f"{type(exc).__name__}: {exc}")
+            res = EngineResult(e.name, e.model, error=f"{type(exc).__name__}: {exc}")
+        if res.error.startswith("quota:"):
+            exhausted.setdefault(e.name, res.error)
+            log.warning("[%s] 무료 한도/크레딧 소진 → 오늘 남은 질문은 건너뜁니다: %s", e.name, res.error[:200])
+        return job, res
 
     done = 0
     with ThreadPoolExecutor(max_workers=max(1, concurrency)) as pool:
