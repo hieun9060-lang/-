@@ -56,14 +56,17 @@ def compact_for_llm(a: dict) -> dict:
     }
 
 
-def ai_briefing(a: dict) -> str:
-    """ANTHROPIC_API_KEY 가 있을 때만 호출. 실패해도 리포트는 규칙 기반으로 생성."""
+def ai_briefing(a: dict, models: dict | None = None) -> tuple[str, str]:
+    """(해설, 작성 엔진명). Claude 키가 있으면 Claude, 없으면 Gemini. 실패해도 리포트는 규칙 기반으로 생성."""
+    models = models or {}
+    prompt = f"오늘 측정 결과(JSON):\n{json.dumps(compact_for_llm(a), ensure_ascii=False)}"
     try:
         from .engines.claude import ClaudeEngine, complete_text
-        if not ClaudeEngine.available():
-            return ""
-        payload = json.dumps(compact_for_llm(a), ensure_ascii=False)
-        return complete_text(f"오늘 측정 결과(JSON):\n{payload}", SYSTEM)
+        from .engines.others import GeminiEngine, gemini_complete_text
+        if ClaudeEngine.available():
+            return complete_text(prompt, SYSTEM, models.get("claude")), "Claude"
+        if GeminiEngine.available():
+            return gemini_complete_text(prompt, SYSTEM, models.get("gemini")), "Gemini"
     except Exception as e:  # noqa: BLE001
         log.warning("AI 브리핑 생성 실패: %s", e)
-        return ""
+    return "", ""

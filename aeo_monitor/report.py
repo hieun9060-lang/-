@@ -168,7 +168,7 @@ def _md_to_html(md: str) -> str:
     return "".join(out)
 
 
-def render_html(a: dict, briefing_rule: list[str], briefing_ai: str) -> str:
+def render_html(a: dict, briefing_rule: list[str], briefing_ai: str, ai_by: str = "") -> str:
     import re
     k = a["kpi"]
     run = a["run"]
@@ -197,7 +197,7 @@ def render_html(a: dict, briefing_rule: list[str], briefing_ai: str) -> str:
     bold = lambda t: re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", e(t))  # noqa: E731
     brief = "<ul class='brief'>" + "".join(f"<li>{bold(x)}</li>" for x in briefing_rule) + "</ul>"
     if briefing_ai:
-        brief += f"<h3>AI 해설 (Claude)</h3>{_md_to_html(briefing_ai)}"
+        brief += f"<h3>AI 해설 ({e(ai_by or 'AI')})</h3>{_md_to_html(briefing_ai)}"
 
     def rate_rows(rows, label_fn=lambda r: r["key"]):
         return _bar_rows([(label_fn(r), r["rate"], f'{r["rate"]}% ({r["hit"]}/{r["n"]})', True) for r in rows])
@@ -410,14 +410,14 @@ def write_xlsx(store: Store, a: dict, path: Path) -> None:
 
 
 def write_reports(store: Store, a: dict, briefing_rule: list[str], briefing_ai: str, docs_dir: Path,
-                  site_url: str = "") -> dict:
+                  site_url: str = "", ai_by: str = "") -> dict:
     run_date = a["run"]["run_date"]
     rep_dir = docs_dir / "reports"
     rep_dir.mkdir(parents=True, exist_ok=True)
     prefix = "demo-" if a["run"]["demo"] else ""
     html_path = rep_dir / f"{prefix}{run_date}.html"
     url = f"{site_url.rstrip('/')}/reports/{html_path.name}" if site_url else ""
-    html_doc = render_html(a, briefing_rule, briefing_ai)
+    html_doc = render_html(a, briefing_rule, briefing_ai, ai_by)
     html_path.write_text(html_doc, encoding="utf-8")
     md = render_markdown(a, briefing_rule, briefing_ai, url)
     md_path = rep_dir / f"{prefix}{run_date}.md"

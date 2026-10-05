@@ -1,8 +1,8 @@
 # 일일 측정 설정
-engines: []            # 비워두면 API 키가 있는 엔진(claude/chatgpt/gemini/perplexity)을 모두 사용
-models: {}             # 예: {claude: claude-opus-5-5, chatgpt: gpt-5, gemini: gemini-2.5-flash, perplexity: sonar}
+engines: [gemini]      # 사용할 엔진. 다른 엔진도 쓰려면 추가 (claude, chatgpt, gemini, perplexity). 비우면 키가 있는 엔진 모두
+models: {gemini: gemini-2.5-flash}   # Gemini 모델을 바꾸려면 여기 수정 (예: gemini-2.5-pro)
 samples_per_question: 1  # AI 답변은 매번 달라지므로 2~3으로 올리면 더 안정적 (비용 비례 증가)
-concurrency: 6
+concurrency: 3       # Gemini 호출 한도(429)에 걸리면 낮추세요
 include_templates: true  # 학원별 동일 질문 비교 포함 여부
 trend_days: 14
-ai_insight: true       # ANTHROPIC_API_KEY 가 있으면 Claude 가 오늘 결과를 해설
+ai_insight: true       # 오늘 결과 해설 문단 생성 (Gemini 키 사용, Claude 키가 있으면 Claude 우선)

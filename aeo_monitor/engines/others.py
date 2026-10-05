@@ -14,6 +14,19 @@ from .base import SYSTEM_PROMPT, Citation, Engine, EngineResult, dedupe
 TIMEOUT = 180
 
 
+def _post(url: str, retries: int = 5, **kw) -> requests.Response:
+    """429(호출 한도)·5xx 는 지수 백오프로 재시도."""
+    import time
+    for attempt in range(retries + 1):
+        resp = requests.post(url, timeout=TIMEOUT, **kw)
+        if resp.status_code not in (429, 500, 502, 503, 504) or attempt == retries:
+            resp.raise_for_status()
+            return resp
+        wait = float(resp.headers.get("retry-after") or 0) or min(60, 2 ** (attempt + 2))
+        time.sleep(wait)
+    raise RuntimeError("unreachable")
+
+
 class OpenAIEngine(Engine):
     name = "chatgpt"
     default_model = os.environ.get("OPENAI_MODEL", "gpt-5")
@@ -71,7 +84,7 @@ class GeminiEngine(Engine):
     def ask(self, question: str) -> EngineResult:
         r = EngineResult(self.name, self.model)
         try:
-            resp = requests.post(
+            resp = _post(
                 f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent",
                 headers={"x-goog-api-key": os.environ["GEMINI_API_KEY"]},
                 json={
@@ -79,9 +92,7 @@ class GeminiEngine(Engine):
                     "contents": [{"role": "user", "parts": [{"text": question}]}],
                     "tools": [{"google_search": {}}],
                 },
-                timeout=TIMEOUT,
             )
-            resp.raise_for_status()
             data = resp.json()
         except requests.RequestException as e:
             r.error = f"gemini: {e}"
@@ -141,3 +152,17 @@ class PerplexityEngine(Engine):
                 cites.append(Citation(url, titles.get(url, ""), "", f"[{i}]" in r.answer))
         r.citations = dedupe(cites)
         return r
+
+
+def gemini_complete_text(prompt: str, system: str, model: str | None = None) -> str:
+    """인사이트 해설용 단순 호출 (검색 없음)."""
+    resp = _post(
+        f"https://generativelanguage.googleapis.com/v1beta/models/{model or GeminiEngine.default_model}:generateContent",
+        headers={"x-goog-api-key": os.environ["GEMINI_API_KEY"]},
+        json={
+            "systemInstruction": {"parts": [{"text": system}]},
+            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        },
+    )
+    cand = (resp.json().get("candidates") or [{}])[0]
+    return "".join(p.get("text", "") for p in (cand.get("content") or {}).get("parts", []) or []).strip()

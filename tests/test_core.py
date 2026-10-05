@@ -112,3 +112,40 @@ def test_end_to_end_mock(tmp_path, monkeypatch):
     assert (rep / "demo-2026-10-05.xlsx").exists()
     # 데모는 공개 리포트(index.html)를 덮어쓰지 않는다
     assert not (tmp_path / "docs" / "index.html").exists()
+
+
+def test_gemini_engine_parsing(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "test")
+    from aeo_monitor.engines import others
+
+    payload = {"candidates": [{
+        "content": {"parts": [{"text": "이투스247 이천기숙학원은 "}, {"text": "관리가 엄격합니다."}]},
+        "groundingMetadata": {
+            "groundingChunks": [
+                {"web": {"uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/a", "title": "orbi.kr"}},
+                {"web": {"uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/b", "title": "dhnews.co.kr"}},
+            ],
+            "groundingSupports": [{"groundingChunkIndices": [0]}],
+        },
+    }]}
+
+    class Resp:
+        status_code = 200
+        headers: dict = {}
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return payload
+
+    monkeypatch.setattr(others.requests, "post", lambda *a, **kw: Resp())
+    r = others.GeminiEngine().ask("질문")
+    assert r.answer == "이투스247 이천기숙학원은 관리가 엄격합니다."
+    assert [c.cited_in_answer for c in r.citations] == [True, False]
+    url, dom = CL.resolve(r.citations[0].url, r.citations[0].title)
+    assert dom == "orbi.kr" and CL.classify(url) == "커뮤니티(수만휘·오르비 등)"
+
+
+def test_settings_use_gemini_only():
+    assert config.load_settings()["engines"] == ["gemini"]

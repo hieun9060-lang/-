@@ -50,8 +50,10 @@ def build_report(store: Store, run_id: int, settings: dict) -> dict:
     brands = config.load_brands()
     a = analyze_run(store, run_id, brands, _baseline(), settings.get("trend_days", 14))
     rules = rule_based(a)
-    ai = ai_briefing(a) if settings.get("ai_insight", True) and not a["run"]["demo"] else ""
-    out = write_reports(store, a, rules, ai, config.DOCS_DIR, _site_url())
+    ai, ai_by = ("", "")
+    if settings.get("ai_insight", True) and not a["run"]["demo"]:
+        ai, ai_by = ai_briefing(a, settings.get("models"))
+    out = write_reports(store, a, rules, ai, config.DOCS_DIR, _site_url(), ai_by)
     log.info("리포트: %s", out["html"])
     return out
 
