@@ -20,6 +20,7 @@ from .analyze import analyze_run
 from .collect import run_collection, today_kst
 from .engines import build_engines
 from .insight import ai_briefing, rule_based
+from .export import export_app_data
 from .report import write_reports
 from .schedule import select_daily, window_days
 from .sources import SourceClassifier
@@ -57,6 +58,8 @@ def build_report(store: Store, run_id: int, settings: dict) -> dict:
     if settings.get("ai_insight", True) and not a["run"]["demo"]:
         ai, ai_by = ai_briefing(a, settings.get("models"), settings.get("insight_engine", "gemini"))
     out = write_reports(store, a, rules, ai, config.DOCS_DIR, _site_url(), ai_by)
+    files = {k: f"reports/{out[k].name}" for k in ("html", "xlsx")}
+    export_app_data(config.DOCS_DIR, a, rules, ai, ai_by, files)
     log.info("리포트: %s", out["html"])
     return out
 

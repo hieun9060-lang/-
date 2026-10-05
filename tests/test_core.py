@@ -220,3 +220,28 @@ def test_claude_haiku_uses_basic_web_search(monkeypatch):
     assert eng.ask("q").answer == "답"
     assert seen["tools"][0]["type"] == "web_search_20250305"
     assert "output_config" not in seen and "fallbacks" not in seen
+
+
+def test_app_data_export(tmp_path, monkeypatch):
+    import json
+    monkeypatch.setattr(config, "DATA_DIR", tmp_path / "data")
+    monkeypatch.setattr(config, "DOCS_DIR", tmp_path / "docs")
+    from aeo_monitor.cli import main
+    for d in ("2026-10-06", "2026-10-07"):
+        assert main(["run", "--engines", "mock", "--date", d]) == 0
+    base = tmp_path / "docs" / "data-demo"
+    idx = json.loads((base / "index.json").read_text(encoding="utf-8"))
+    assert [d["date"] for d in idx["days"]] == ["2026-10-06", "2026-10-07"] and idx["latest"] == "2026-10-07"
+    day = json.loads((base / "days" / "2026-10-07.json").read_text(encoding="utf-8"))
+    for key in ("kpi", "briefing", "sov", "sourceMix", "actions", "questions", "trend", "files"):
+        assert key in day
+    assert day["demo"] is True and day["files"]["xlsx"].endswith(".xlsx")
+    # 실제 데이터 폴더는 데모로 오염되지 않음
+    assert not (tmp_path / "docs" / "data").exists()
+
+
+def test_app_shell_references_exist():
+    root = Path(__file__).resolve().parent.parent / "docs"
+    html = (root / "index.html").read_text(encoding="utf-8")
+    for f in ("app.css", "app.js", "manifest.webmanifest", "icon.svg"):
+        assert f in html and (root / f).exists()

@@ -28,7 +28,7 @@
 
 ## 리포트 구성
 
-`docs/reports/YYYY-MM-DD.html`(대시보드) · `.xlsx`(엑셀) · `.md`(알림용 요약). 최신본은 `docs/index.html`.
+`docs/reports/YYYY-MM-DD.html`(대시보드) · `.xlsx`(엑셀) · `.md`(알림용 요약). 최신본은 `docs/reports/latest.html`, 앱은 `docs/index.html`.
 
 - 오늘의 핵심 (규칙 기반 요약 + Gemini가 쓴 해설)
 - 핵심 지표: 이천캠퍼스 언급률(전일 대비), '이투스247'만 언급된 비율(캠퍼스 혼동), 공식 홈페이지 인용률, 평균 순위, 감성
@@ -40,6 +40,29 @@
 - 질문별 상세: 엔진마다 ●언급(순위) / ◐브랜드만 / ○미언급, 함께 언급된 학원, 원인, 출처 링크
 
 엑셀 파일에는 답변 원문과 모든 출처 URL이 시트별로 들어 있습니다.
+
+## 인사이트 앱 (휴대폰 홈 화면에 설치)
+
+`docs/` 폴더가 GitHub Pages 로 공개되면 **https://hieun9060-lang.github.io/-/** 에서 앱으로 볼 수 있습니다.
+휴대폰에서 열고 *홈 화면에 추가*(iPhone: 공유 → 홈 화면에 추가 / Android: 메뉴 → 앱 설치)하면 일반 앱처럼 실행됩니다.
+
+| 탭 | 내용 |
+|---|---|
+| 💡 인사이트 | 오늘의 핵심 요약 + AI 해설, 오늘/누적 언급률·전일 대비, 고정 질문 추이(AI별), 오늘 먼저 할 일, 리포트·엑셀 링크 |
+| 🏁 경쟁 | 같은 질문에서 학원별 언급률·점유율·1순위 횟수, 경쟁사만 나올 때의 출처 |
+| 🔗 출처 | 사이트 유형 비율(엑셀 기준선 비교), 이천캠퍼스를 다룬 출처, 언급/미언급 원인 |
+| 💬 질문 | 질문별·AI별 언급 여부와 순위, 함께 언급된 학원, 원인, 출처 링크 (검색·필터) |
+| ✅ 개선과제 | 원인 빈도로 정한 AEO/GEO 과제 우선순위와 실행 항목 |
+
+위쪽 날짜 선택으로 지난 측정일을 볼 수 있습니다. 데이터는 매일 측정 후 `docs/data/` 에 JSON 으로 쌓입니다.
+
+> ⚠️ 저장소가 **공개(public)** 이므로 앱·리포트·측정 데이터도 누구나 볼 수 있습니다. 비공개로 하려면 저장소를 private 으로 바꾸고
+> 유료 플랜(GitHub Pro 등)의 비공개 Pages 를 쓰거나, 앱 대신 GitHub 이슈 요약·엑셀만 사용하세요.
+
+## GitHub 요약
+
+매일 09:00(KST)에 저장소 **Issues** 에 `[AI 언급 리포트] 날짜` 이슈가 올라옵니다(핵심 요약, AI별 언급률, 경쟁 학원 상위 8, 우선 과제, 미언급 질문, 앱·리포트·엑셀 링크).
+전날 요약 이슈는 자동으로 닫혀 최신 요약만 열려 있습니다. 저장소 오른쪽 위 **Watch → All Activity** 를 켜면 GitHub 앱 푸시/메일로 받습니다.
 
 ## 설정 (처음 한 번)
 
@@ -53,8 +76,10 @@
    - GitHub 이슈: 기본 사용. 저장소를 *Watch* 하면 GitHub 앱 푸시/메일로 매일 9시에 받습니다. 끄려면 변수 `NOTIFY_GITHUB_ISSUE=0`
    - Slack: secret `SLACK_WEBHOOK_URL`
    - 이메일: secrets `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `REPORT_EMAIL_TO`(쉼표로 여러 명)
-4. **웹에서 리포트 보기** (선택) — Settings → Pages → Source 를 *GitHub Actions* 로 바꾸고 변수 `ENABLE_PAGES=true` 추가.
-   알림 메시지에 `https://<계정>.github.io/<저장소>/reports/날짜.html` 링크가 붙습니다(다른 주소면 변수 `REPORT_SITE_URL`).
+4. **인사이트 앱 켜기 (GitHub Pages)** — 저장소 Settings → Pages → *Build and deployment*
+   - Source: **Deploy from a branch**, Branch: `claude/etoos-chatbot-mention-analysis-txjy2l`, 폴더: **/docs** → Save
+   - 몇 분 뒤 앱 주소: **https://hieun9060-lang.github.io/-/** (매일 측정이 끝나면 자동 갱신)
+   - (대안) Source 를 *GitHub Actions* 로 두려면 Actions 변수 `ENABLE_PAGES=true` 추가
 5. **공식 도메인 확인** — `config/brands.yaml` 의 `domains` 는 추정값입니다. 이천캠퍼스 공식 홈페이지와 경쟁사 홈페이지의 실제 도메인으로 바꿔야 '공식 홈페이지 인용률'이 정확해집니다.
 
 수동 실행: Actions → *Daily AI mention check* → *Run workflow* (mode: both / collect / notify).

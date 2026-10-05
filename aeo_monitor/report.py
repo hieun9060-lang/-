@@ -347,7 +347,9 @@ def render_markdown(a: dict, briefing_rule: list[str], briefing_ai: str, report_
     lines += ["", f"### 어느 엔진에서도 언급되지 않은 질문 ({len(unmentioned)}건, 일부)"]
     lines += [f"- {q}" for q in unmentioned[:10]]
     if report_url:
-        lines += ["", f"📊 전체 리포트: {report_url}"]
+        site = report_url.split("/reports/")[0]
+        lines += ["", f"📱 인사이트 앱: {site}/", f"📊 전체 리포트: {report_url}",
+                  f"📥 엑셀: {report_url.rsplit('.', 1)[0]}.xlsx"]
     return "\n".join(lines) + "\n"
 
 
@@ -438,7 +440,7 @@ def write_reports(store: Store, a: dict, briefing_rule: list[str], briefing_ai: 
     xlsx_path = rep_dir / f"{prefix}{run_date}.xlsx"
     write_xlsx(store, a, xlsx_path)
     if not a["run"]["demo"]:
-        (docs_dir / "index.html").write_text(html_doc, encoding="utf-8")
+        (rep_dir / "latest.html").write_text(html_doc, encoding="utf-8")
         (rep_dir / "latest.md").write_text(md, encoding="utf-8")
         _write_archive(rep_dir)
     return {"html": html_path, "md": md_path, "xlsx": xlsx_path, "url": url}
@@ -450,4 +452,4 @@ def _write_archive(rep_dir: Path) -> None:
     (rep_dir / "index.html").write_text(
         f'<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
         f'<title>리포트 목록</title><style>{CSS}</style>{THEME_JS}</head><body><main><h1>일일 리포트 목록</h1>'
-        f'<p><a href="../index.html">최신 리포트</a></p><ul>{links}</ul></main></body></html>', encoding="utf-8")
+        f'<p><a href="../">📱 인사이트 앱</a> · <a href="latest.html">최신 리포트</a></p><ul>{links}</ul></main></body></html>', encoding="utf-8")

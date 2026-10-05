@@ -6,3 +6,4 @@ __pycache__/
 data/*.db-journal
 data/demo.db
 docs/reports/demo-*
+docs/data-demo/

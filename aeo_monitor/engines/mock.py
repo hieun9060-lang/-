@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import random
 
 from .base import Citation, Engine, EngineResult
@@ -29,7 +30,7 @@ class MockEngine(Engine):
 
     def __init__(self, model: str | None = None, seed: str = ""):
         super().__init__(model)
-        self.seed = seed
+        self.seed = seed or os.environ.get("AEO_MOCK_SEED", "")
 
     def ask(self, question: str) -> EngineResult:
         h = int(hashlib.sha256((self.seed + question).encode()).hexdigest(), 16)

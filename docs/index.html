@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>AI 언급 인사이트</title>
+<meta name="description" content="이투스247 이천기숙학원이 AI 챗봇 답변에 얼마나, 왜 언급되는지 매일 확인하는 인사이트 앱">
+<meta name="theme-color" content="#2a78d6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AI 언급">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="app.css">
+<script>
+  try { var t = localStorage.getItem('aeo-theme'); if (t) document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+</script>
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <div>
+      <div class="eyebrow" id="target">AI 언급 인사이트</div>
+      <h1 id="title">오늘의 인사이트</h1>
+    </div>
+    <div class="top-actions">
+      <select id="date" aria-label="측정일 선택"></select>
+      <button id="theme" class="icon-btn" aria-label="라이트/다크 전환" title="라이트/다크">◐</button>
+    </div>
+  </div>
+</header>
+<main id="app" aria-live="polite"><div class="loading">불러오는 중…</div></main>
+<nav class="tabs" role="tablist" aria-label="화면">
+  <button role="tab" data-tab="insight" aria-selected="true"><span class="ti">💡</span>인사이트</button>
+  <button role="tab" data-tab="compete"><span class="ti">🏁</span>경쟁</button>
+  <button role="tab" data-tab="sources"><span class="ti">🔗</span>출처</button>
+  <button role="tab" data-tab="questions"><span class="ti">💬</span>질문</button>
+  <button role="tab" data-tab="actions"><span class="ti">✅</span>개선과제</button>
+</nav>
+<div id="tip" class="tip" role="tooltip" hidden></div>
+<script src="app.js"></script>
+</body>
+</html>

@@ -45,6 +45,15 @@ def notify_github_issue(title: str, markdown: str) -> bool:
     url = f"https://api.github.com/repos/{repo}/issues"
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
     body = {"title": title, "body": markdown, "labels": ["daily-ai-report"]}
+    # 이전 날짜의 열린 요약 이슈는 닫아서 최신 요약만 열려 있게
+    try:
+        old = requests.get(url, headers=headers, params={"labels": "daily-ai-report", "state": "open", "per_page": 50}, timeout=30)
+        if old.ok:
+            for issue in old.json():
+                requests.patch(f"{url}/{issue['number']}", headers=headers,
+                               json={"state": "closed", "state_reason": "completed"}, timeout=30)
+    except requests.RequestException as e:
+        log.warning("이전 요약 이슈 닫기 실패: %s", e)
     r = requests.post(url, headers=headers, json=body, timeout=30)
     if r.status_code == 422:  # 라벨 문제 등 → 라벨 없이 재시도
         body.pop("labels")
