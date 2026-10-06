@@ -10,7 +10,7 @@ from typing import Iterator, Literal
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
-from .. import config, llm
+from .. import config, llm, views
 from ..analyze import analyze_run
 from ..content import ai as content_ai
 from ..content.classify import ALL_TOPICS
@@ -39,34 +39,15 @@ def get_repo(request: Request) -> Iterator[Repo]:
         store.close()
 
 
-def safe_link(url: str) -> str:
-    return url if url.startswith(("http://", "https://")) else ""
-
-
 def check_date(s: str | None) -> str:
-    s = s or today_kst()
-    if not DATE.match(s):
-        raise HTTPException(400, "날짜 형식은 YYYY-MM-DD 입니다.")
-    return s
+    try:
+        return views.check_date(s)
+    except views.BadRequest as e:
+        raise HTTPException(400, str(e))
 
 
-def post_json(p: dict) -> dict:
-    return {"id": p["id"], "company_id": p["company_id"], "company": p.get("company_name", ""), "platform": p["platform"],
-            "title": p["title"], "snippet": p["snippet"], "url": safe_link(p["url"]), "topic": p["topic"],
-            "date": p["post_date"], "published_at": p["published_at"]}
-
-
-def tracked(repo: Repo) -> list[dict]:
-    """채널이 하나라도 있는 회사 (캘린더·통계에 표시)."""
-    with_ch = {c["company_id"] for c in repo.channels(active_only=True)}
-    return [c for c in repo.companies() if c["id"] in with_ch]
-
-
-def company_json(repo: Repo, c: dict) -> dict:
-    chans = repo.channels(c["id"])
-    return {"id": c["id"], "name": c["name"], "role": c["role"], "color": c["color_idx"], "aliases": c["aliases"],
-            "domains": c["domains"], "trackAi": c["track_ai"], "channels": chans,
-            "posts": repo.post_total("2000-01-01", "2100-01-01", company_id=c["id"])}
+safe_link, post_json, tracked, company_json, key_status = (
+    views.safe_link, views.post_json, views.tracked, views.company_json, views.key_status)
 
 
 # ---------------- 인증 ----------------
@@ -109,51 +90,16 @@ def logout(response: Response):
 
 
 # ---------------- 기본 정보 ----------------
-def key_status() -> dict:
-    import os
-    return {"gemini": bool(os.environ.get("GEMINI_API_KEY")), "chatgpt": bool(os.environ.get("OPENAI_API_KEY")),
-            "claude": bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")),
-            "perplexity": bool(os.environ.get("PERPLEXITY_API_KEY")),
-            "slack": bool(os.environ.get("SLACK_WEBHOOK_URL")),
-            "email": bool(os.environ.get("SMTP_HOST") and os.environ.get("REPORT_EMAIL_TO"))}
-
-
 @protected.get("/bootstrap")
 def bootstrap(request: Request, repo: Repo = Depends(get_repo)):
-    jobs = request.app.state.jobs
-    return {"today": today_kst(), "workspace": repo.kv_get("workspace", {}), "goal": repo.kv_get("goal", {}),
-            "schedule": repo.kv_get("schedule", {}), "topics": ALL_TOPICS,
-            "companies": [company_json(repo, c) for c in repo.companies()],
-            "job": repo.latest_job(), "running": jobs.running(), "keys": key_status()}
+    return views.build_bootstrap(repo, request.app.state.jobs.running())
 
 
 # ---------------- 캘린더 ----------------
 @protected.get("/calendar")
 def calendar(view: Literal["day", "week", "month"] = "day", anchor: str | None = None, repo: Repo = Depends(get_repo)):
-    anchor = check_date(anchor)
-    start, end = period_range(view, anchor)
-    comps = tracked(repo)
-    posts = repo.posts(start, end, limit=3000)
-    by_c: dict[str, list[dict]] = {}
-    for p in posts:
-        by_c.setdefault(p["company_id"], []).append(p)
-    sums = repo.day_summaries(anchor) if view == "day" else {}
-    cards = []
-    for c in comps:
-        ps = by_c.get(c["id"], [])
-        s = sums.get(c["id"])
-        rule = content_ai.rule_digest(c, ps) if ps else {"issue": "", "summary": "", "highlight": ""}
-        topics = Counter(p["topic"] for p in ps)
-        if s and ps:
-            issue, summary, highlight, model = s["issue"], s["summary"], s["highlight"], s["model"]
-        else:
-            issue, summary, highlight, model = rule["issue"], rule["summary"], rule["highlight"], "규칙" if ps else ""
-        cards.append({"id": c["id"], "name": c["name"], "role": c["role"], "color": c["color_idx"], "count": len(ps),
-                      "issue": issue, "summary": summary, "highlight": highlight, "summaryBy": model,
-                      "topics": dict(topics), "posts": [post_json(p) for p in ps[:60]]})
-    return {"view": view, "anchor": anchor, "start": start, "end": end, "companies": cards,
-            "total": sum(c["count"] for c in cards),
-            "daily": daily_counts(repo, start, end) if view != "day" else {}, "hasChannels": bool(comps)}
+    check_date(anchor)
+    return views.build_calendar(repo, view, anchor)
 
 
 class DateIn(BaseModel):
@@ -171,46 +117,21 @@ def make_summaries(body: DateIn, repo: Repo = Depends(get_repo)):
 @protected.get("/stats")
 def stats(range: Literal["week", "month", "year"] = "month", anchor: str | None = None,
           platform: Literal["blog", "youtube", "homepage", "rss", "all"] = "all", repo: Repo = Depends(get_repo)):
-    anchor = check_date(anchor)
-    start, end = period_range(range, anchor)
-    allp = period_stats(repo, start, end)
-    ps, pe = previous_period(start, end)
-    graph = allp if platform == "all" else period_stats(repo, start, end, platform)
-    return {"range": range, "anchor": anchor, "start": start, "end": end, "total": allp["total"],
-            "prevTotal": period_stats(repo, ps, pe)["total"], "byPlatform": allp["byPlatform"],
-            "graph": graph, "topics": graph["byTopic"], "platform": platform}
+    check_date(anchor)
+    return views.build_stats(repo, range, anchor, platform)
 
 
 # ---------------- 근거 자료 ----------------
-def _evidence_filters(company: str | None, topic: str | None, days: str, q: str | None) -> dict:
-    end = today_kst()
-    start = "2000-01-01" if days == "all" else shift_period("day", end, -(int(days) - 1)) if days.isdigit() else "2000-01-01"
-    return {"start": start, "end": "2100-01-01", "company_id": company or None, "topic": topic or None, "q": (q or "").strip()[:80] or None}
-
-
 @protected.get("/evidence")
 def evidence(company: str | None = None, topic: str | None = None, days: str = "all", q: str | None = None,
              offset: int = 0, limit: int = 50, repo: Repo = Depends(get_repo)):
-    f = _evidence_filters(company, topic, days, q)
-    limit = max(1, min(limit, 200))
-    start, end = f.pop("start"), f.pop("end")
-    items = repo.posts(start, end, limit=limit, offset=max(0, offset), **f)
-    return {"total": repo.post_total(start, end, **f), "items": [post_json(p) for p in items], "topics": repo.post_topics()}
+    return views.build_evidence(repo, company, topic, days, q, offset, limit)
 
 
 @protected.get("/evidence.csv")
 def evidence_csv(company: str | None = None, topic: str | None = None, days: str = "all", q: str | None = None,
                  repo: Repo = Depends(get_repo)):
-    f = _evidence_filters(company, topic, days, q)
-    start, end = f.pop("start"), f.pop("end")
-    buf = io.StringIO()
-    w = csv.writer(buf)
-    w.writerow(["날짜", "회사", "채널", "주제", "제목", "요약", "원문 주소"])
-    for p in repo.posts(start, end, limit=20000, **f):
-        # 엑셀 수식 주입 방지: = + - @ 로 시작하는 셀 앞에 ' 를 붙임
-        cells = [p["post_date"], p["company_name"], p["platform"], p["topic"], p["title"], p["snippet"], p["url"]]
-        w.writerow([("'" + c) if isinstance(c, str) and c[:1] in "=+-@" else c for c in cells])
-    return Response("﻿" + buf.getvalue(), media_type="text/csv; charset=utf-8",
+    return Response(views.build_evidence_csv(repo, company, topic, days, q), media_type="text/csv; charset=utf-8",
                     headers={"Content-Disposition": 'attachment; filename="evidence.csv"'})
 
 
@@ -394,8 +315,7 @@ class QuestionPatch(BaseModel):
 
 @protected.get("/questions")
 def list_questions(repo: Repo = Depends(get_repo)):
-    aeo = repo.kv_get("aeo", {})
-    return {"questions": repo.questions(), "daily": aeo.get("daily_questions", 10)}
+    return views.build_questions(repo)
 
 
 @protected.post("/questions")
@@ -427,11 +347,8 @@ def delete_question(qid: str, repo: Repo = Depends(get_repo)):
 # ---------------- AI 분석 ----------------
 @protected.get("/analysis")
 def get_analysis(kind: Literal["week", "month"] = "week", anchor: str | None = None, repo: Repo = Depends(get_repo)):
-    anchor = check_date(anchor)
-    start, end = period_range(kind, anchor)
-    r = repo.report(kind, start)
-    return {"kind": kind, "anchor": anchor, "start": start, "end": end, "report": r["payload"] if r else None,
-            "ai": bool(llm.available())}
+    check_date(anchor)
+    return views.build_analysis(repo, kind, anchor)
 
 
 class AnalysisIn(BaseModel):
@@ -459,8 +376,7 @@ class SettingsIn(BaseModel):
 
 @protected.get("/settings")
 def get_settings(repo: Repo = Depends(get_repo)):
-    return {"goal": repo.kv_get("goal", {}), "schedule": repo.kv_get("schedule", {}), "aeo": repo.kv_get("aeo", {}),
-            "keys": key_status(), "allEngines": [e for e in REGISTRY if e != "mock"]}
+    return views.build_settings(repo)
 
 
 @protected.put("/settings")
@@ -518,34 +434,25 @@ def latest_job(request: Request, repo: Repo = Depends(get_repo)):
 # ---------------- AI 언급 ----------------
 @protected.get("/aeo/index")
 def aeo_index(demo: bool = False, repo: Repo = Depends(get_repo)):
-    days = repo.aeo_days(demo)
-    return {"days": days, "latest": days[-1]["date"] if days else None}
+    return views.build_aeo_index(repo, demo)
 
 
 @protected.get("/aeo/day/{date}")
 def aeo_day(date: str, demo: bool = False, repo: Repo = Depends(get_repo)):
-    p = repo.aeo_day(check_date(date), demo)
+    check_date(date)
+    p = views.build_aeo_day(repo, date, demo)
     if not p:
         raise HTTPException(404, "해당 날짜의 AI 언급 데이터가 없습니다.")
-    p["files"] = {"xlsx": f"/api/aeo/{date}.xlsx" + ("?demo=1" if demo else "")}
     return p
 
 
 @protected.get("/aeo/{date}.xlsx")
 def aeo_xlsx(date: str, demo: bool = False, repo: Repo = Depends(get_repo)):
-    from ..report import write_xlsx
-    date = check_date(date)
-    run = repo.store.latest_run(date)
-    if not run or bool(run["demo"]) != demo:
+    check_date(date)
+    data = views.build_aeo_xlsx(repo, date, demo)
+    if data is None:
         raise HTTPException(404, "해당 날짜의 측정이 없습니다.")
-    brands = repo.brand_config()
-    st = repo.aeo_settings()
-    from ..schedule import window_days
-    a = analyze_run(repo.store, run["id"], brands, None, st.get("trend_days", 14),
-                    window_days(st, repo.load_questions(brands, st.get("include_templates", False))))
-    buf = io.BytesIO()
-    write_xlsx(repo.store, a, buf, brands)
-    return Response(buf.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    return Response(data, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     headers={"Content-Disposition": f'attachment; filename="ai-mentions-{date}.xlsx"'})
 
 

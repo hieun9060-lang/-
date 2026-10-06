@@ -1,4 +1,5 @@
 import { api } from './api.js';
+import { STATIC, META } from './mode.js';
 import { $, $$, esc, toast, spinner, ICON } from './util.js';
 
 const ENG = { gemini: 'Gemini', chatgpt: 'ChatGPT', claude: 'Claude', perplexity: 'Perplexity' };
@@ -8,6 +9,7 @@ export async function renderSettings(root, ctx) {
   let s;
   try { s = await api('/settings'); } catch (e) { root.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
   const k = s.keys, a = s.aeo, sc = s.schedule;
+  if (STATIC) return renderStaticSettings(root, s);
   const key = (n, ok) => `<span>${ok ? '<span class="badge ok">연결됨</span>' : '<span class="badge gray">키 없음</span>'} ${esc(n)}</span>`;
   root.innerHTML = `
     <div class="section"><div class="eyebrow">리서치 기준</div><h2>확정 리서치</h2><div class="sub">원장이 실제로 판단에 사용할 한 문장을 확정합니다. AI 요약·분석의 기준이 됩니다.</div>
@@ -54,4 +56,21 @@ export async function renderSettings(root, ctx) {
       toast('설정을 저장했습니다. 다음 실행부터 적용됩니다.');
     } catch (e) { toast(e.message, 'err'); }
   };
+}
+
+function renderStaticSettings(root, s) {
+  const k = s.keys, a = s.aeo;
+  const edit = (f) => (META.repo ? `https://github.com/${META.repo}/edit/${META.branch}/${f}` : '');
+  const btn = (f, label) => (edit(f) ? `<a class="btn sm" href="${esc(edit(f))}" target="_blank" rel="noopener noreferrer">${label}</a>` : '');
+  root.innerHTML = `
+    <div class="section"><div class="eyebrow">리서치 기준</div><h2>확정 리서치</h2>
+      <p style="margin:6px 0 0"><b>${esc(s.goal.title || '')}</b><br><span class="sub">${esc(s.goal.desc || '')}</span></p>
+      <div class="row" style="margin-top:10px">${btn('config/monitor.yaml', '문구 수정 (monitor.yaml)')}</div></div>
+    <div class="section"><div class="setgrid">
+      <div><h3>자동 실행</h3><div class="sub" style="margin-top:6px">매일 07:00(한국 시간)에 수집·측정하고, 09:00에 GitHub 이슈·Slack·이메일로 요약을 보냅니다. 시각은 워크플로 파일에서 바꿉니다.</div>
+        <div class="row" style="margin-top:8px">${btn('.github/workflows/monitor.yml', '시각 수정 (monitor.yml)')}</div></div>
+      <div><h3>AI 챗봇 언급 측정</h3><div class="sub" style="margin-top:6px">사용 AI: ${(a.engines || []).map((e) => `${esc(e)} ${k[e] ? '<span class="badge ok">키 있음</span>' : '<span class="badge gray">키 없음</span>'}`).join(' · ')}<br>
+        하루 질문 ${esc(a.daily_questions)}개 · 해설 작성: ${esc(a.insight_engine)}</div>
+        <div class="row" style="margin-top:8px">${btn('config/settings.yaml', '수정 (settings.yaml)')}</div></div></div>
+      <p class="sub" style="margin-top:12px">API 키는 GitHub 저장소의 Secrets 에만 보관하며 화면·데이터 파일에 나타나지 않습니다.</p></div>`;
 }

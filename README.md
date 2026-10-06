@@ -1,81 +1,89 @@
-# 기숙학원 모니터링
+# 기숙학원 모니터링 (무료 버전)
 
-이투스247 이천기숙학원을 위한 **매일 확인하는 인사이트 대시보드**입니다. 로그인해서 쓰는 웹 서비스이고, 휴대폰 홈 화면에 앱처럼 설치할 수 있습니다.
+이투스247 이천기숙학원을 위한 **매일 확인하는 인사이트 대시보드**입니다. 비용 없이 쓰도록 **GitHub Actions(매일 자동 실행) + Cloudflare Pages(화면) + Cloudflare Access(이메일 로그인)** 로 구성합니다.
 
 | 하는 일 | 내용 |
 |---|---|
-| **경쟁사 콘텐츠 모니터링** | 우리·경쟁 학원의 블로그, 유튜브, 홈페이지에 올라온 새 게시물을 매일 수집해 회사별·주제별로 정리하고 AI가 요약합니다. |
+| **경쟁사 콘텐츠 모니터링** | 우리·경쟁 학원의 블로그, 유튜브, 홈페이지 새 게시물을 매일 수집해 회사별·주제별로 정리하고 요약합니다. |
 | **AI 챗봇 언급 측정** | 소비자가 AI 챗봇(Gemini·ChatGPT·Claude)에 실제로 하는 질문을 매일 던져, 이투스247 이천이 얼마나·왜 언급되는지, 어떤 출처를 근거로 하는지, AEO/GEO로 무엇을 보완해야 하는지 보여줍니다. |
+
+## 어떻게 동작하나
+
+```
+매일 07:00  GitHub Actions 가 채널 수집 + AI 측정 → 대시보드 파일 생성 → Cloudflare Pages 에 배포
+매일 09:00  GitHub 이슈(앱 알림) · Slack · 이메일로 요약 알림
+언제든      Cloudflare 주소로 접속 → 이메일로 받은 코드로 로그인 → 대시보드
+```
+
+- 서버가 없습니다. 수집한 데이터는 저장소의 `data-store` 브랜치에 파일 하나로 보관됩니다.
+- **화면은 보기 전용**입니다. 회사·채널 주소·질문은 `config/monitor.yaml` 파일을 GitHub에서 고치면(저장하면 몇 분 안에 자동 반영) 바뀝니다.
+- 비용: GitHub 무료 플랜(비공개 저장소도 Actions 월 2,000분, 이 프로그램은 하루 10~20분 사용), Cloudflare 무료 플랜(Pages, Access 50명까지). AI는 Gemini 무료 등급을 기본으로 쓰고, ChatGPT·Claude 는 상시 무료 API가 없어 체험 크레딧 안에서만 동작합니다.
 
 ## 화면
 
 | 탭 | 내용 |
 |---|---|
-| 리서치 캘린더 | 일간·주간·월간. 업체별 동향 카드(중심 이슈, AI 요약, 핵심 요약, 새 게시물과 원문 링크), 회사별 비교 |
-| 리서치 통계 | 기간별 게시물 수, 블로그·유튜브·홈페이지 구분, 회사별 활동 그래프(통합/회사별), 주제 분포 |
+| 리서치 캘린더 | 일간·주간·월간. 업체별 동향 카드(중심 이슈, 요약, 핵심 요약, 새 게시물과 원문 링크), 회사별 비교 |
+| 리서치 통계 | 기간별 게시물 수, 블로그·유튜브·홈페이지 구분, 회사별 활동 그래프, 주제 분포 |
 | 근거 자료 | 수집한 원문 목록. 회사·주제·기간·검색 필터, CSV 내려받기 |
-| 수집 관리 | 회사와 채널(URL) 추가·수정, 채널 상태(정상/로그인 필요/오류)와 재시도, AI 질문 관리 |
-| AI 분석 | 주간·월간 분석 보고서(경쟁사 움직임, 우리 학원 vs 경쟁사, 시사점). 월요일·1일에 자동 생성 |
-| AI 언급 | 언급률·추이, 경쟁 학원 비교, 출처 분석, 질문별 결과(왜 언급됐나/안 됐나), AEO/GEO 개선과제, 엑셀 |
+| 수집 관리 | 회사·채널 상태(정상/로그인 필요/오류), AI 질문 목록, 설정 파일 바로 열기 |
+| AI 분석 | 이번 주·이번 달(매일 갱신)과 지난 기간 보고서 |
+| AI 언급 | 언급률·추이, 경쟁 학원 비교, 출처 분석, 질문별 결과(왜 언급됐나/안 됐나), 개선과제, 엑셀 |
 
-위쪽의 **지금 실행**은 즉시 수집·측정을 시작하고, **AI 챗봇**은 수집된 데이터에 대해 질문하는 대화창입니다. 맨 아래 **운영 설정**에서 확정 리서치 문구, 자동 실행 시각, 사용할 AI, 하루 질문 수를 바꿉니다.
+## 설정 순서 (처음 한 번, 약 30분)
 
-## 시작하기
+### 1. 저장소를 비공개로 바꾸기
+수집한 데이터와 경쟁 학원 목록이 공개되지 않게 합니다.
+저장소 → **Settings** → 맨 아래 **Danger Zone** → **Change repository visibility** → **Make private**.
 
-### 1) 배포 (매일 자동 실행이 필요하므로 항상 켜져 있는 서버가 필요합니다)
+### 2. AI 키를 Secrets 에 넣기
+저장소 → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
 
-**Render (권장, 가장 간단)** — 이 저장소를 Render에 연결하고 *New → Blueprint* 를 선택하면 `render.yaml` 대로 만들어집니다.
-배포 화면에서 `APP_PASSWORD`(8자 이상)와 사용할 AI 키를 입력하세요. 데이터가 저장되는 디스크가 있고 항상 켜져 있는 플랜(starter 이상)이어야 합니다. 무료 플랜은 잠들어서 새벽 자동 실행이 되지 않습니다.
-
-**자체 서버(VPS·사무실 PC)** — Docker 가 있으면:
-```bash
-cp .env.example .env   # APP_PASSWORD, SECRET_KEY, AI 키 입력
-docker compose up -d   # http://서버주소:8000
-```
-인터넷에 공개할 때는 앞에 HTTPS 를 붙여 주세요(Caddy, nginx 등). 그때 `TRUST_PROXY=1` 로 바꿉니다.
-
-**내 컴퓨터에서 시험**
-```bash
-pip install -r requirements-dev.txt
-export APP_PASSWORD=시험용비밀번호123 SECRET_KEY=$(python -c "import secrets;print(secrets.token_urlsafe(32))")
-export GEMINI_API_KEY=...            # 쓰는 AI 키만
-python -m aeo_monitor serve          # http://localhost:8000
-```
-
-> ⚠️ 이 서비스는 제가 만든 환경에서 **Docker 이미지를 직접 빌드해 보지 못했고**, 실제 인터넷의 블로그·유튜브·AI 서비스에도 접속해 보지 못했습니다. 처음 배포한 뒤 아래 "첫 설정"의 3번에서 채널이 정상으로 뜨는지 꼭 확인하세요.
-
-### 2) 환경변수
-
-| 이름 | 용도 |
+| 이름 | 값 |
 |---|---|
-| `APP_PASSWORD` (필수) | 로그인 비밀번호(8자 이상) |
-| `SECRET_KEY` (필수) | 세션 서명용 무작위 문자열(16자 이상) |
-| `GEMINI_API_KEY` / `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | 사용할 AI. 키가 없는 AI는 자동으로 건너뜁니다 |
-| `SLACK_WEBHOOK_URL`, `SMTP_HOST` `SMTP_PORT` `SMTP_USER` `SMTP_PASSWORD` `SMTP_FROM` `REPORT_EMAIL_TO` | 매일 요약 알림(선택) |
-| `AEO_DATA_DIR` | 데이터(SQLite) 저장 위치. 반드시 영구 디스크 |
-| `TRUST_PROXY=1` | 프록시(Render·nginx 등) 뒤에서 실행할 때 |
+| `GEMINI_API_KEY` | [Google AI Studio](https://aistudio.google.com/apikey) 에서 발급(무료) |
+| `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` | 쓰는 경우에만 (체험 크레딧이 끝나면 멈춥니다) |
 
-API 키와 비밀번호는 환경변수로만 두며 화면·API 어디에도 나오지 않습니다.
+키가 없는 AI는 자동으로 건너뜁니다. 키는 Secrets 에만 있고 화면·데이터 파일에는 나오지 않습니다.
 
-### 3) 첫 설정
+### 3. 수집할 채널 주소 넣기
+저장소에서 `config/monitor.yaml` 을 열고 연필(✏️) 아이콘 → `channels:` 아래 예시 줄의 맨 앞 `#` 를 지우고 실제 주소로 바꾼 뒤 **Commit changes**.
+네이버 블로그(`https://blog.naver.com/아이디`), 유튜브(`https://www.youtube.com/@채널이름`), 홈페이지 주소를 쓸 수 있습니다. 새 학원은 같은 파일의 `companies:` 에 추가합니다(예시가 파일 안에 있습니다).
 
-1. 주소로 접속해 `APP_PASSWORD` 로 로그인합니다.
-2. **수집 관리 → 회사 추가**(또는 기존 회사의 **수정하기**)에서 우리 학원과 경쟁 학원의 **블로그·유튜브·홈페이지 주소**를 넣습니다. 저장하면 바로 한 번 수집해서 결과를 알려줍니다.
-3. **채널 관리**에서 상태가 **정상**인지 확인합니다. 문제가 있으면 맨 위에 표시되고, 주소를 고친 뒤 **재시도**로 다시 시험할 수 있습니다.
-4. 맨 아래 **운영 설정**에서 확정 리서치 문구와 자동 실행 시각(기본 07:00 수집·측정, 09:00 알림)을 확인합니다.
-5. **지금 실행**으로 첫 수집·측정을 해 봅니다. 이후에는 매일 자동으로 실행됩니다.
+### 4. Cloudflare 연결 (화면 배포)
+1. https://dash.cloudflare.com 에서 무료 가입합니다.
+2. **Account ID** 를 복사합니다 (Workers & Pages 화면 오른쪽에 표시).
+3. 오른쪽 위 프로필 → **My Profile** → **API Tokens** → **Create Token** → **Create Custom Token** → 권한 *Account → Cloudflare Pages → Edit* → 만들어진 토큰을 복사합니다 (한 번만 보입니다).
+4. GitHub Secrets 에 `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` 두 개를 추가합니다.
+5. 저장소 **Actions** 탭 → **Monitor** → **Run workflow** → **Run workflow**. 10~20분 뒤 끝나면 `https://academy-monitor.pages.dev` 가 생깁니다. 이름이 이미 사용 중이면 저장소 Variables 에 `CF_PAGES_PROJECT` 로 다른 이름을 넣고 다시 실행하세요.
 
-처음 서버를 켜면 `config/` 의 기본값(경쟁 학원 14곳과 엑셀에서 뽑은 AI 질문 63개, 설정)이 데이터베이스로 한 번 옮겨지고, 그 뒤로는 모든 설정을 화면에서 바꿉니다.
-`config/brands.yaml` 의 공식 홈페이지 도메인은 추정값이니, **회사 수정**에서 실제 주소 조각으로 고치면 '공식 홈페이지 인용률'이 정확해집니다.
+### 5. 로그인 걸기 (Cloudflare Access)
+1. Cloudflare 왼쪽 메뉴 **Zero Trust** (처음이면 팀 이름을 정하고 **Free** 플랜을 선택합니다. 결제 수단 입력을 요구할 수 있지만 무료 플랜은 청구되지 않습니다).
+2. **Access → Applications → Add an application → Self-hosted**
+3. Application domain 에 `academy-monitor.pages.dev` 를 입력하고, 정책(Policy)은 **Allow**, 대상은 **Emails** 에 본인(그리고 함께 볼 사람) 이메일을 넣어 저장합니다. 로그인 방식은 기본인 One-time PIN(메일로 받는 코드)이면 충분합니다.
+4. 이 주소를 열어 이메일을 입력하고, 메일로 온 코드를 넣으면 대시보드가 열립니다. 휴대폰 홈 화면에 추가해 앱처럼 쓸 수 있습니다.
 
-## 매일 하는 일
+> 로그인을 걸지 않으면 주소를 아는 누구나 대시보드를 볼 수 있습니다. 5번까지 끝낸 뒤 사용하세요. (Cloudflare 메뉴 이름은 바뀔 수 있습니다.)
 
-설정한 시각(한국 시간)에 서버가 알아서 실행합니다.
+### 6. 알림 받기 (선택)
+- GitHub 이슈 요약: 저장소 오른쪽 위 **Watch → All activity** 를 켜면 매일 09:00 요약이 GitHub 앱 푸시/메일로 옵니다. Variables 에 `SITE_URL`(대시보드 주소)을 넣으면 요약에 링크가 붙습니다.
+- Slack: Secrets `SLACK_WEBHOOK_URL`. 이메일: `SMTP_HOST` `SMTP_PORT` `SMTP_USER` `SMTP_PASSWORD` `SMTP_FROM` `REPORT_EMAIL_TO`.
 
-1. **07:00 수집·측정** — 모든 채널의 새 게시물 수집 → 주제 분류 → 업체 동향 요약 → AI 챗봇 언급 측정 → (월요일/1일) 주간·월간 분석 생성
-2. **09:00 알림** — 요약을 Slack/이메일로 발송(설정한 채널만)
+## 매일 쓰는 방법
 
-서버가 꺼져 있다가 실행 시각 이후에 켜지면 20초 뒤 그날 수집을 따라잡아 실행합니다. 실행 상태와 결과(새 게시물 수, 문제 채널, AI 측정 여부)는 화면 위쪽 상태 줄에 표시됩니다.
+- **보기**: 대시보드 주소로 접속합니다.
+- **수정**: GitHub → `config/monitor.yaml`(채널 주소·질문·확정 리서치 문구), `config/brands.yaml`(학원 목록·AI 판정 표기), `config/settings.yaml`(AI 종류·하루 질문 수) 를 고치고 Commit changes → 자동으로 다시 수집·배포됩니다. 설정에 오류가 있으면 Actions 가 실패하고 이메일이 옵니다(화면 위쪽에도 경고가 표시됩니다).
+- **지금 실행**: Actions → Monitor → Run workflow (mode: `collect` = 수집 후 배포, `rebuild` = 수집 없이 화면만 다시 만들기, `notify` = 알림만).
+
+### 선택 기능: 화면의 'AI 챗봇'·'지금 실행' 버튼
+기본으로는 안내 창이 뜹니다. 버튼이 바로 동작하게 하려면 Cloudflare Pages 프로젝트 → **Settings → Variables and Secrets** 에 다음을 추가하고 워크플로를 한 번 더 실행하세요. 모두 Access 로그인 토큰을 검증하므로 로그인한 사람만 쓸 수 있습니다.
+
+| 이름 | 값 |
+|---|---|
+| `ACCESS_TEAM_DOMAIN` | 예: `myteam.cloudflareaccess.com` (Zero Trust 팀 도메인) |
+| `ACCESS_AUD` | 5번에서 만든 Access 앱의 *Application Audience (AUD) Tag* |
+| `GEMINI_API_KEY` | AI 챗봇용 (무료 키) |
+| `GITHUB_TOKEN`, `GITHUB_REPO`, `GITHUB_BRANCH` | 지금 실행용. 토큰은 GitHub → Settings → Developer settings → Fine-grained tokens 에서 **이 저장소만**, 권한 *Actions: Read and write* 로 만듭니다. `GITHUB_REPO` 는 `계정/저장소`, `GITHUB_BRANCH` 는 기본 브랜치 이름 |
 
 ## 수집 방식과 한계
 
@@ -83,38 +91,46 @@ API 키와 비밀번호는 환경변수로만 두며 화면·API 어디에도 �
 |---|---|
 | 네이버 블로그 | `rss.blog.naver.com/<아이디>.xml` (주소에서 아이디를 자동 인식) |
 | 티스토리·RSS/Atom | 피드를 직접 읽음 |
-| 유튜브 | 채널 주소(`/@이름`, `/channel/UC…`)에서 채널 ID를 찾아 공식 피드를 읽음 |
-| 그 밖의 홈페이지 | 페이지에 RSS 링크가 있으면 사용, 없으면 페이지 링크 목록의 변화를 추적(처음 읽은 링크는 '기존 글'로 간주해 캘린더에 올리지 않음) |
+| 유튜브 | 채널 주소에서 채널 ID를 찾아 공식 피드를 읽음 |
+| 그 밖의 홈페이지 | 페이지에 RSS 링크가 있으면 사용, 없으면 페이지 링크 목록의 변화를 추적(처음 읽은 링크는 '기존 글'로 간주) |
 
-- 로그인이 필요하거나 자바스크립트로 그려지는 페이지, 수집을 막아 둔 사이트는 **로그인 필요/확인 필요**로 표시됩니다(우회하지 않습니다).
-- 홈페이지 방식은 링크 텍스트로 새 글을 추정하므로 블로그·유튜브보다 정확도가 낮습니다. 게시일을 알 수 없으면 수집한 날짜를 씁니다.
-- 주제 분류(합격 실적·입시 정보·모집·일정·수업·커리큘럼·시설·생활·이벤트·응원·기타)는 키워드 규칙이라 참고용입니다.
-- 게시물 수집은 각 사이트의 이용약관과 robots 정책을 확인한 뒤 사용하세요. 공개된 게시물의 제목·요약·원문 링크만 저장합니다.
+- 로그인이 필요하거나 자바스크립트로 그려지는 페이지, 수집을 막아 둔 사이트는 **로그인 필요/확인 필요**로 표시됩니다(우회하지 않습니다). 홈페이지 방식은 블로그·유튜브보다 정확도가 낮고, 게시일을 모르면 수집한 날짜를 씁니다.
+- 주제 분류와 감성 판정은 키워드 규칙이라 참고용입니다. 각 사이트의 이용약관을 확인하고 쓰세요. 공개 게시물의 제목·요약·원문 링크만 저장합니다.
+- 화면에서 볼 수 있는 기간은 최근 약 6개월(캘린더·통계), 근거 자료는 최근 1년입니다.
 
 ## AI 챗봇 언급 측정
 
-- 하루 **질문 10개**(기본): 매일 같은 **고정 질문 4개**(추이·전일 대비용) + 나머지 59개를 **6개씩 순환**(10일이면 전체 63개를 한 바퀴). 질문은 **수집 관리 → AI 질문 관리**에서 추가·삭제·고정할 수 있고, 하루 질문 수는 운영 설정에서 바꿉니다.
-- 사용 모델: Gemini `gemini-2.5-flash`, ChatGPT `gpt-5-mini`, Claude `claude-haiku-4-5`(모두 웹검색 포함, 가장 저렴한 모델). 모델 이름은 `config/settings.yaml` 의 기본값이며 처음 한 번 DB로 복사됩니다.
-- Gemini 는 무료 등급이 있지만 ChatGPT·Claude 는 상시 무료 API가 없어 체험 크레딧 안에서만 동작합니다. 일일 한도·크레딧이 소진되면 그 AI는 그날 남은 질문을 건너뛰고 화면에 표시합니다.
-- 누적 지표(경쟁 비교·출처·원인·개선과제)는 최근 10일 동안 질문·AI별 최신 답변 기준이고, 언급률 추이·전일 대비는 고정 질문 기준입니다.
-- 언급 판정은 등록된 표기(회사 수정의 'AI 답변에서 인정할 표기')와 "이투스+이천 근접" 규칙으로 하며, 감성 분류는 키워드 기반 참고값입니다. AI 답변은 실행마다 달라질 수 있습니다.
+- 하루 **질문 10개**(기본): 매일 같은 **고정 질문 4개**(추이·전일 대비용) + 나머지를 **6개씩 순환**(10일이면 63개 전체). 질문 추가·제외는 `monitor.yaml`, 하루 질문 수와 AI 종류는 `settings.yaml` 에서 바꿉니다.
+- 모델: Gemini `gemini-2.5-flash`, ChatGPT `gpt-5-mini`, Claude `claude-haiku-4-5` (웹검색 포함, 가장 저렴한 모델). 일일 한도·크레딧이 소진되면 그 AI는 그날 건너뛰고 화면에 표시합니다.
+- 언급 판정은 등록된 표기와 "이투스+이천 근접" 규칙으로 하며, AI 답변은 실행마다 달라질 수 있습니다.
+
+## 한계 (무료 방식의 대가)
+
+- 화면에서 직접 고칠 수 없습니다(설정 파일 수정). '지금 실행'은 선택 기능을 설정하면 버튼으로, 아니면 GitHub Actions 에서 합니다.
+- GitHub 예약 실행은 정확히 07:00 이 아니라 몇 분~1시간 늦을 수 있습니다.
+- Actions 무료 시간은 월 2,000분입니다. 하루 20분이면 월 600분 안팎입니다.
+- 데이터는 `data-store` 브랜치의 파일 하나(이력 없이 덮어씀)와 실행마다 7일 보관되는 사이트 파일이 전부입니다. 중요한 데이터라면 가끔 `data-store` 브랜치의 `aeo.db` 를 내려받아 두세요.
 
 ## 보안
 
-- 단일 비밀번호 로그인, 서명된 세션 쿠키(HttpOnly, SameSite=Lax, HTTPS면 Secure), 5회 실패 시 15분 잠금.
-- 변경 요청은 전용 헤더가 있어야만 처리해 다른 사이트에서 몰래 보내는 요청(CSRF)을 막습니다. CSP·X-Frame-Options 등 보안 헤더를 붙이고, 화면에 나오는 외부 텍스트는 모두 이스케이프합니다.
-- 서버가 사용자가 입력한 주소를 대신 열기 때문에 http/https 만 허용하고, 내부망·루프백·메타데이터 주소는 차단합니다(리다이렉트마다 재검사). 이름 해석 직후 연결 사이의 짧은 틈(DNS 재바인딩)까지는 막지 못하므로, 서버를 민감한 내부망에 두지 마세요. `ALLOW_PRIVATE_FETCH=1` 은 테스트 전용이니 운영에서 설정하지 마세요.
-- CSV 내려받기는 엑셀 수식 주입을 막도록 처리합니다.
-- 데이터는 SQLite 파일 하나(`$AEO_DATA_DIR/aeo.db`)입니다. 호스팅의 디스크 스냅샷이나 주기적인 파일 복사로 백업하세요.
+- Cloudflare Access 로그인 뒤에서만 화면과 데이터가 열립니다. 로그인 없이 쓰면 공개됩니다.
+- 'AI 챗봇'·'지금 실행' 함수는 Access 로그인 토큰의 서명·만료·대상을 검증하고, 변경 요청에는 전용 헤더가 있어야 합니다.
+- 수집기는 사용자가 정한 주소를 읽으므로 http/https 만 허용하고 내부망 주소는 막습니다. 화면에 나오는 외부 텍스트는 모두 이스케이프하고, CSV는 엑셀 수식 주입을 막습니다.
+
+## 고급: 직접 서버로 운영하기
+
+화면에서 회사·채널을 바로 추가·수정하고 '지금 실행'을 누르는 **로그인형 웹 서비스** 버전도 들어 있습니다. 항상 켜져 있는 서버와 영구 디스크가 필요해 무료로는 어렵습니다.
+`docker compose up -d`(`.env.example` 참고) 또는 Render 의 `render.yaml` 로 배포합니다. 환경변수 `APP_PASSWORD`, `SECRET_KEY` 가 필요합니다. 이 방식은 화면에서 모든 설정을 바꾸고 `config/` 파일은 첫 실행 때 한 번만 읽습니다.
 
 ## 개발
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest -q                                   # 테스트
-AEO_DATA_DIR=/tmp/preview python -m aeo_monitor demo-seed   # 미리보기용 가짜 데이터 (운영 DB에 쓰지 마세요)
-APP_ALLOW_NO_AUTH=1 DISABLE_SCHEDULER=1 AEO_DATA_DIR=/tmp/preview python -m aeo_monitor serve   # 로그인 없이 로컬 확인
-python -m aeo_monitor run --engines mock --limit 5    # 서버 없이 AI 언급 측정만 시험 (결과는 DEMO 표시)
+python -m pytest -q                                   # 테스트 (Functions 테스트는 node 필요)
+AEO_DATA_DIR=/tmp/preview python -m aeo_monitor demo-seed          # 미리보기용 가짜 데이터
+AEO_DATA_DIR=/tmp/preview python -m aeo_monitor build-site --out /tmp/site --no-sync --skip-collect
+python -m http.server 8000 --directory /tmp/site      # 정적 사이트 미리보기
+python -m aeo_monitor build-site --out site            # 실제 수집 + 사이트 생성 (Actions 가 하는 일)
 ```
 
-구조: `aeo_monitor/content/`(채널 수집·분류·통계·AI 요약), `aeo_monitor/engines/`(Gemini·ChatGPT·Claude·Perplexity), `aeo_monitor/server/`(API·로그인·스케줄러), `web/`(화면, 빌드 도구 없음).
+구조: `aeo_monitor/content/`(채널 수집·분류·통계·AI 요약), `aeo_monitor/engines/`(Gemini·ChatGPT·Claude·Perplexity), `aeo_monitor/staticsite.py`(정적 사이트 생성), `aeo_monitor/server/`(서버 버전), `web/`(화면), `functions/`(Cloudflare 선택 기능), `.github/workflows/monitor.yml`(매일 실행).

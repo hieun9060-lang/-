@@ -147,7 +147,7 @@ export async function renderAeo(root, ctx) {
   try { idx = await api('/aeo/index'); } catch (e) { root.innerHTML = `<div class="empty"><b>불러오지 못했습니다</b>${esc(e.message)}</div>`; return; }
   if (!idx.latest) {
     root.innerHTML = `<div class="empty"><b>아직 AI 챗봇 언급 측정 결과가 없습니다</b>Gemini · ChatGPT · Claude 답변에서 우리 학원이 얼마나, 왜 언급되는지 매일 측정합니다.<br>
-      운영 설정에서 사용할 AI의 API 키가 등록되어 있는지 확인한 뒤 '지금 실행'을 눌러 첫 측정을 시작하세요.<br><br>
+      운영 설정에서 사용할 AI의 API 키가 등록되어 있는지 확인한 뒤 '지금 실행'을 눌러(정적 모드에서는 GitHub Actions 실행) 첫 측정을 시작하세요.<br><br>
       <button class="btn primary" data-act="run-ai">AI 언급만 지금 측정</button></div>`;
     root.onclick = (e) => { if (e.target.closest('[data-act="run-ai"]')) ctx.runNow('ai'); };
     return;
@@ -158,7 +158,7 @@ export async function renderAeo(root, ctx) {
   root.innerHTML = `
     <div class="toolbar"><div><div class="eyebrow">AI 챗봇 답변 속 언급</div><h2>${esc(d.target)}</h2></div><div class="grow"></div>
       <select id="adate" aria-label="측정일">${[...idx.days].reverse().map((x) => `<option value="${esc(x.date)}" ${x.date === st.date ? 'selected' : ''}>${esc(x.date)}${x.todayRate != null ? ' · ' + x.todayRate + '%' : ''}</option>`).join('')}</select>
-      <a class="btn sm" href="${esc(d.files.xlsx)}" download>엑셀</a></div>
+      ${d.files && d.files.xlsx ? `<a class="btn sm" href="${esc(d.files.xlsx)}" download>엑셀</a>` : ''}</div>
     <div class="subtabs" role="tablist">${SUBS.map(([k, n]) => `<button role="tab" data-sub="${k}" aria-selected="${st.sub === k}">${n}</button>`).join('')}</div>
     <div class="section" style="border-top:0">${st.sub === 'questions' ? viewQuestions(d, st) : VIEWS[st.sub](d)}
       <p class="sub" style="margin-top:20px">측정 ${esc(d.generatedAt.replace('T', ' '))} · AI: ${esc(d.engines.join(', '))} · 언급 판정은 등록된 표기 기준 자동 판정이며 AI 답변은 실행마다 달라질 수 있습니다.</p></div>`;

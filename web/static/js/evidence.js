@@ -1,4 +1,6 @@
 import { api } from './api.js';
+import { STATIC } from './mode.js';
+import { evidenceCsv } from './staticapi.js';
 import { esc, link, PLATFORM, colorVar, ICON, shortDate } from './util.js';
 
 const PAGE = 50;
@@ -24,7 +26,7 @@ export async function renderEvidence(root, ctx) {
   };
   root.innerHTML = `
     <div class="section"><div class="row between"><div><div class="eyebrow">판단의 출처</div><h2>근거 자료</h2><div class="sub">수집한 원문을 회사와 주제별로 묶어 정리했습니다.</div></div>
-      <div class="row"><b id="evtotal">${d.total}건</b><a class="btn sm" href="/api/evidence.csv?${esc(qs.toString())}" download>CSV 내려받기</a></div></div></div>
+      <div class="row"><b id="evtotal">${d.total}건</b>${STATIC ? '<button class="btn sm" id="csv" type="button">CSV 내려받기</button>' : `<a class="btn sm" href="/api/evidence.csv?${esc(qs.toString())}" download>CSV 내려받기</a>`}</div></div></div>
     <div class="filters">
       <label class="field">회사<select data-f="company"><option value="">전체 회사</option>${withCh.map((c) => `<option value="${esc(c.id)}" ${st.company === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label>
       <label class="field">주제<select data-f="topic"><option value="">전체 주제</option>${d.topics.map((t) => `<option ${st.topic === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></label>
@@ -36,6 +38,13 @@ export async function renderEvidence(root, ctx) {
   const q = root.querySelector('input[data-f="q"]');
   let timer;
   q.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => { st.q = q.value; renderEvidence(root, ctx).then(() => { const n = root.querySelector('input[data-f="q"]'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }); }, 350); });
+  const csvBtn = root.querySelector('#csv');
+  if (csvBtn) csvBtn.onclick = async () => {
+    const blob = await evidenceCsv(st);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'evidence.csv';
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
   const more = root.querySelector('#more');
   if (more) {
     let loaded = d.items.length;

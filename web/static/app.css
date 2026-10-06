@@ -40,6 +40,7 @@ h3{font-size:15px;margin:0}
 .btn{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:8px;border:1px solid var(--border);
   background:var(--surface);color:var(--text);font-weight:600;cursor:pointer;white-space:nowrap}
 .btn:hover{background:var(--surface2)}
+a.btn{text-decoration:none;color:var(--text)}a.btn.primary{color:var(--accent-fg)}a.btn.danger{color:var(--bad)}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
 .btn.primary:hover{filter:brightness(1.08)}
 .btn.sm{height:30px;padding:0 10px;font-size:12px}

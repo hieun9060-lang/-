@@ -8,6 +8,7 @@ import { renderAnalysis } from './analysis.js';
 import { renderAeo } from './aeo.js';
 import { renderSettings } from './settings.js';
 import { openChat } from './chat.js';
+import { STATIC, META } from './mode.js';
 
 const TABS = [['calendar', '리서치 캘린더'], ['stats', '리서치 통계'], ['evidence', '근거 자료'], ['manage', '수집 관리'], ['analysis', 'AI 분석'], ['aeo', 'AI 언급']];
 const RENDER = { calendar: renderCalendar, stats: renderStats, evidence: renderEvidence, manage: renderManage, analysis: renderAnalysis, aeo: renderAeo };
@@ -48,13 +49,14 @@ function shell() {
   const b = ctx.boot, g = b.goal || {};
   app.innerHTML = `<div class="wrap">
     <div class="page-head"><div><div class="eyebrow">${esc(b.workspace.name || '')}</div><h1>${esc(b.workspace.title || '기숙학원 모니터링')}</h1></div>
-      <div class="row"><button class="btn sm" id="theme" aria-label="라이트/다크 전환">◐ 화면 모드</button><button class="btn sm" id="logout">${ICON.logout} 로그아웃</button></div></div>
+      <div class="row"><button class="btn sm" id="theme" aria-label="라이트/다크 전환">화면 모드</button>${STATIC ? `<a class="btn sm" href="/cdn-cgi/access/logout">${ICON.logout} 로그아웃</a>` : `<button class="btn sm" id="logout">${ICON.logout} 로그아웃</button>`}</div></div>
     <div class="card pad"><div class="goal"><div><div class="eyebrow">확정 리서치</div><h2>${esc(g.title || '')}</h2><p>${esc(g.desc || '')}</p></div>
       <div class="row"><button class="btn" id="chat">${ICON.chat} AI 챗봇</button><button class="btn primary" id="run">${ICON.play} 지금 실행</button></div></div>
-      <div id="jobbar"></div></div>
+      <div id="jobbar"></div>
+      ${(b.configWarnings || []).length ? `<div class="jobbar err" style="display:block"><b>설정 파일 확인 필요</b><ul style="margin:4px 0 0;padding-left:18px">${b.configWarnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul></div>` : ''}</div>
     <div class="card" style="margin-top:14px"><div class="tabs" role="tablist">${TABS.map(([k, n]) => `<button class="tab" role="tab" data-tab="${k}" aria-selected="${k === tab}">${n}</button>`).join('')}</div><div class="view" id="view"></div></div>
     <details class="card acc" id="settings" style="margin-top:14px"><summary>${ICON.gear} 운영 설정 ${ICON.chev}</summary><div id="setbody"></div></details></div>`;
-  $('#logout').onclick = async () => { await api('/logout', { method: 'POST' }); location.reload(); };
+  if (!STATIC) $('#logout').onclick = async () => { await api('/logout', { method: 'POST' }); location.reload(); };
   $('#theme').onclick = () => {
     const r = document.documentElement;
     const cur = r.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
@@ -107,9 +109,17 @@ async function pollJob() {
 async function runNow(kind = 'all') {
   try {
     await api('/run', { method: 'POST', body: { kind } });
+    if (STATIC) { toast('실행을 요청했습니다. 보통 10~20분 뒤 새로고침하면 새 데이터가 보입니다.'); return; }
     showJob({ kind, status: 'running', progress: '시작하는 중', started_at: '' }, true);
     pollJob();
-  } catch (e) { toast(e.message, 'err'); }
+  } catch (e) {
+    if (STATIC && META.repo && e.status !== 401) {
+      dialog(`<div class="dlg-h"><h3>지금 실행</h3><button class="btn sm" data-close type="button">닫기</button></div>
+        <div class="dlg-b"><p style="margin:0">${esc(e.message)}</p>
+        <p class="sub" style="margin:0">GitHub 의 Actions 화면에서 <b>Monitor</b> → <b>Run workflow</b> 를 누르면 바로 실행됩니다. 보통 10~20분 걸립니다.</p>
+        <a class="btn primary" style="justify-content:center" href="https://github.com/${esc(META.repo)}/actions/workflows/monitor.yml" target="_blank" rel="noopener noreferrer">GitHub Actions 열기</a></div>`);
+    } else toast(e.message, 'err');
+  }
 }
 
 async function start() {

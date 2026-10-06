@@ -1,4 +1,5 @@
 import { api } from './api.js';
+import { STATIC } from './mode.js';
 import { $, $$, esc, link, ROLE, PLATFORM, colorVar, korDate, shortDate, korMonth, rangeLabel, shift, addDays, weekStart, parse, ymd, DOW, ICON, toast, spinner } from './util.js';
 
 const sq = (c) => `<span class="sq" style="background:${colorVar(c.color)}"></span>`;
@@ -65,7 +66,7 @@ export async function renderCalendar(root, ctx) {
   if (!data.hasChannels) {
     root.innerHTML = `<div class="empty"><b>아직 수집할 채널이 없습니다</b>
       '수집 관리'에서 우리 학원과 경쟁 학원의 블로그·유튜브·홈페이지 주소를 등록하면, 매일 새 게시물을 모아 이 화면에 보여줍니다.<br><br>
-      <button class="btn primary" data-act="manage">수집 관리로 이동</button></div>`;
+      <button class="btn primary" data-act="manage">${STATIC ? '등록 방법 보기' : '수집 관리로 이동'}</button></div>`;
     bind(root, ctx, data);
     return;
   }
@@ -84,7 +85,7 @@ export async function renderCalendar(root, ctx) {
     </div>
     ${st.view !== 'day' ? `<div class="section">${dayGrid(data, st)}</div>` : ''}
     <div class="section"><div class="row between"><div><div class="eyebrow">${st.view === 'day' ? '일별' : st.view === 'week' ? '주간' : '월간'} 업체 동향</div><h2>${esc(title)}</h2></div>
-      <div class="row">${st.view === 'day' ? `<button class="btn sm" data-act="digest">${ICON.spark} 업체 동향 AI 요약</button>` : ''}</div></div>
+      <div class="row">${st.view === 'day' && !STATIC ? `<button class="btn sm" data-act="digest">${ICON.spark} 업체 동향 AI 요약</button>` : ''}</div></div>
       <div class="cards">${data.companies.map(card).join('')}</div></div>
     <div class="section"><div class="eyebrow">회사별 ${st.view === 'day' ? '일간' : st.view === 'week' ? '주간' : '월간'} 비교</div>
       <h2>${st.view === 'day' ? shortDate(data.anchor) : esc(label)} 게시물</h2>${compare(data, st)}</div>`;

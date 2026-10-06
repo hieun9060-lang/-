@@ -1,4 +1,5 @@
 import { api } from './api.js';
+import { STATIC, META } from './mode.js';
 import { $, $$, esc, link, ROLE, PLATFORM, colorVar, dialog, toast, spinner, ICON } from './util.js';
 
 const STATUS = {
@@ -124,6 +125,7 @@ function channelDialog(ch, done) {
 }
 
 export async function renderManage(root, ctx) {
+  if (STATIC) return renderManageStatic(root, ctx);
   root.innerHTML = '<div class="loading">불러오는 중…</div>';
   let qdata;
   try { await ctx.reloadBoot(); qdata = await api('/questions'); }
@@ -201,4 +203,42 @@ export async function renderManage(root, ctx) {
     if (t.length < 2) return;
     try { await api('/questions', { method: 'POST', body: { text: t, panel: $('#qpanel', root).checked } }); toast('질문을 추가했습니다.'); refresh(); } catch (err) { toast(err.message, 'err'); }
   };
+}
+
+/* ---------- 정적 모드: 보기 전용 + GitHub 설정 파일 안내 ---------- */
+async function renderManageStatic(root, ctx) {
+  root.innerHTML = '<div class="loading">불러오는 중…</div>';
+  const q = await api('/questions');
+  const cs = ctx.boot.companies.filter((c) => c.channels.length || c.role === 'ours');
+  const chans = cs.flatMap((c) => c.channels.map((ch) => ({ ...ch, company: c.name })));
+  const sortKey = (ch) => ({ login: 0, error: 0, warn: 1, pending: 2, ok: 3 }[ch.status] ?? 3);
+  chans.sort((a, b) => sortKey(a) - sortKey(b) || a.company.localeCompare(b.company));
+  const edit = (f) => (META.repo ? `https://github.com/${META.repo}/edit/${META.branch}/config/${f}` : '');
+  const bad = chans.filter((c) => ['login', 'error', 'warn'].includes(c.status)).length;
+  const btn = (href, label, cls = '') => (href ? `<a class="btn ${cls}" href="${esc(href)}" target="_blank" rel="noopener noreferrer">${label}</a>` : '');
+  root.innerHTML = `
+    <div class="section"><div class="eyebrow">설정 방법</div><h2>수집 설정은 GitHub 파일로 관리합니다</h2>
+      <p class="sub" style="font-size:13px;margin:6px 0 10px">이 화면은 보기 전용입니다. 아래 버튼으로 설정 파일을 열어 고친 뒤 <b>Commit changes</b>를 누르면, 몇 분 안에 자동으로 다시 수집해 이 화면에 반영됩니다.</p>
+      <div class="row">${btn(edit('monitor.yaml'), '채널 주소·질문 추가 (monitor.yaml)', 'primary')}${btn(edit('brands.yaml'), '학원 목록·AI 표기 (brands.yaml)')}
+        ${META.repo ? btn(`https://github.com/${META.repo}/actions`, '실행 상태 보기 (Actions)') : ''}</div></div>
+    <div class="section"><div class="eyebrow">모니터링 범위</div><h2>회사와 URL</h2><div class="sub">${cs.length}개 회사의 ${chans.length}개 URL을 확인하고 있습니다.</div>
+      <div style="margin-top:10px">${cs.map((c) => `<div class="mgrow"><div><b>${esc(c.name)}</b> ${c.role === 'ours' ? '<span class="badge">우리 학원</span>' : ''}
+        <div class="sub">${esc(ROLE[c.role])} · 수집된 게시물 ${c.posts}건</div></div><span class="sub">${c.channels.length}개 URL</span></div>`).join('')}</div></div>
+    <div class="section"><div class="row between"><div><div class="eyebrow">수집 상태</div><h2>채널 관리</h2>
+      <div class="sub">문제가 있는 채널을 먼저 보여드립니다. 주소는 monitor.yaml 에서 고칩니다.</div></div>
+      ${bad ? `<span class="badge warn">${bad}개 확인 필요</span>` : chans.length ? '<span class="badge ok">모두 정상</span>' : ''}</div>
+      <div style="margin-top:10px;border:1px solid var(--border);border-radius:10px;overflow:hidden">${chans.length ? chans.map((ch) => {
+        const [lab, cls, ic] = STATUS[ch.status] || STATUS.pending;
+        const u = link(ch.url);
+        return `<div class="chrow ${['login', 'error', 'warn'].includes(ch.status) ? 'bad' : ''}"><div class="ic">${ic}</div>
+          <div class="info"><div><b>${esc(PLATFORM[ch.type] || ch.type)}</b> <span class="badge ${cls}">${lab}</span></div>
+            <div class="sub">${esc(ch.company)} · ${esc(ch.status_msg || '아직 수집 전입니다.')}</div><div class="u">${esc(ch.url)}</div>
+            ${ch.last_checked_at ? `<div class="sub">마지막 확인 ${esc(ch.last_checked_at.replace('T', ' ').slice(0, 16))} · 수집 ${ch.item_count || 0}건</div>` : ''}</div>
+          ${u ? `<a class="btn sm icon" href="${esc(u)}" target="_blank" rel="noopener noreferrer" aria-label="열기">${ICON.out}</a>` : ''}</div>`;
+      }).join('') : '<div class="empty"><b>등록된 채널이 없습니다</b>위의 <b>monitor.yaml</b> 버튼을 눌러 channels 항목에 우리 학원과 경쟁 학원의 블로그·유튜브·홈페이지 주소를 넣으세요.</div>'}</div></div>
+    <div class="section"><div class="eyebrow">AI 챗봇 언급 측정</div><h2>AI 질문</h2>
+      <div class="sub">하루 ${q.daily}개(고정 + 순환)를 측정합니다. 질문 추가·제외는 monitor.yaml 의 extra_questions / disable_questions 에서 합니다.</div>
+      <div style="margin-top:10px;border:1px solid var(--border);border-radius:10px;overflow:hidden;max-height:420px;overflow-y:auto">${q.questions.map((x) => `
+        <div class="list-row" style="padding:8px 12px"><span class="badge ${x.enabled ? 'ok' : 'gray'}">${x.enabled ? '사용' : '제외'}</span>${x.panel ? '<span class="badge warn">★ 고정</span>' : ''}
+          <div class="grow" style="min-width:0;${x.enabled ? '' : 'opacity:.5'}">${esc(x.text)}<span class="sub"> ${esc(x.id)}</span></div></div>`).join('')}</div></div>`;
 }

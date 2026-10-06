@@ -133,6 +133,65 @@ def cmd_serve(args) -> int:
     return 0
 
 
+def _checkpoint(store: Store) -> None:
+    """저장 전에 WAL 을 본 파일로 합쳐 DB 파일 하나만 보관해도 되게 한다."""
+    store.conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    store.conn.execute("PRAGMA journal_mode=DELETE")
+
+
+def cmd_build_site(args) -> int:
+    """매일 실행(GitHub Actions): 설정 반영 → 수집·측정 → 정적 사이트 생성."""
+    from .configsync import ConfigError, sync_config
+    from .pipeline import run_pipeline
+    from .repo import Repo
+    from .staticsite import build_site, ensure_reports
+    from .timeutil import today_kst
+    db_path = config.DATA_DIR / "aeo.db"
+    store = Store(db_path)
+    repo = Repo(store)
+    try:
+        if not args.no_sync:
+            try:
+                res = sync_config(repo)
+            except ConfigError as e:
+                log.error("설정 파일 오류: %s", e)
+                return 2
+            log.info("설정 반영: 회사 %d · 채널 %d · 경고 %d", res["companies"], res["channels"], len(res["warnings"]))
+            for w in res["warnings"]:
+                log.warning("설정 경고: %s", w)
+            if not res["channels"]:
+                log.warning("수집할 채널 주소가 없습니다. config/monitor.yaml 의 channels 에 주소를 넣으세요.")
+        if not args.skip_collect:
+            jid = repo.create_job(args.kind, args.trigger)
+            run_pipeline(db_path, args.kind, args.trigger, jid)
+            j = repo.job(jid)
+            log.info("수집 결과: %s — %s", j["status"], j["progress"])
+        ensure_reports(repo, today_kst())
+        info = build_site(repo, Path(args.out), args.repo, args.branch)
+        log.info("사이트 생성: %s", info)
+    finally:
+        _checkpoint(store)
+        store.close()
+    return 0
+
+
+def cmd_notify_db(args) -> int:
+    from .notify import send_all
+    from .pipeline import notification_markdown
+    from .repo import Repo
+    store = Store(config.DATA_DIR / "aeo.db")
+    try:
+        title, md = notification_markdown(Repo(store))
+    finally:
+        store.close()
+    site = os.environ.get("SITE_URL", "").rstrip("/")
+    if site:
+        md += f"\n📱 대시보드: {site}/\n"
+    sent = send_all(title, md)
+    log.info("발송 채널: %s", ", ".join(sent) or "(설정된 채널 없음)")
+    return 0
+
+
 def cmd_demo_seed(args) -> int:
     from .demo import seed_demo
     if "AEO_DATA_DIR" not in os.environ and not args.force:
@@ -172,6 +231,17 @@ def main(argv: list[str] | None = None) -> int:
     sv.add_argument("--host", default=os.environ.get("HOST", "0.0.0.0"))
     sv.add_argument("--port", type=int, default=int(os.environ.get("PORT", "8000")))
     sv.set_defaults(fn=cmd_serve)
+    bs = sub.add_parser("build-site", help="설정 반영 + 수집·측정 + 정적 사이트 생성 (GitHub Actions 용)")
+    bs.add_argument("--out", default="site")
+    bs.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY", ""))
+    bs.add_argument("--branch", default=os.environ.get("GITHUB_REF_NAME", ""))
+    bs.add_argument("--trigger", default="schedule")
+    bs.add_argument("--kind", choices=["all", "content"], default="all", help="content = AI 언급 측정 없이 채널 수집만")
+    bs.add_argument("--skip-collect", action="store_true", help="수집·측정 없이 사이트만 다시 생성")
+    bs.add_argument("--no-sync", action="store_true", help="config 파일을 DB에 반영하지 않음 (데모용)")
+    bs.set_defaults(fn=cmd_build_site)
+    nd = sub.add_parser("notify-db", help="저장된 데이터로 요약 알림 발송 (GitHub 이슈·Slack·이메일)")
+    nd.set_defaults(fn=cmd_notify_db)
     ds = sub.add_parser("demo-seed", help="화면 미리보기용 가짜 데이터 생성")
     ds.add_argument("--force", action="store_true")
     ds.set_defaults(fn=cmd_demo_seed)

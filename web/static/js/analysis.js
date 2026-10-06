@@ -1,4 +1,5 @@
 import { api } from './api.js';
+import { STATIC } from './mode.js';
 import { esc, link, ROLE, PLATFORM, colorVar, rangeLabel, shift, ICON, toast, spinner, bold } from './util.js';
 
 export async function renderAnalysis(root, ctx) {
@@ -12,10 +13,12 @@ export async function renderAnalysis(root, ctx) {
     <div class="seg">${[['week', '주간'], ['month', '월간']].map(([k, n]) => `<button data-act="kind" data-v="${k}" aria-pressed="${st.kind === k}">${n}</button>`).join('')}</div>
     <button class="btn icon" data-act="prev" aria-label="이전">${ICON.left}</button><b style="min-width:130px;text-align:center">${esc(rangeLabel(st.kind, d.start, d.end, d.anchor))}</b>
     <button class="btn icon" data-act="next" aria-label="다음">${ICON.right}</button><button class="btn sm" data-act="today">오늘</button><div class="grow"></div>
-    <button class="btn primary" data-act="regen">${ICON.spark} ${r ? '다시 분석' : '분석 만들기'}</button></div>`;
+    ${STATIC ? '' : `<button class="btn primary" data-act="regen">${ICON.spark} ${r ? '다시 분석' : '분석 만들기'}</button>`}</div>`;
   let body;
   if (!r) {
-    body = `<div class="empty"><b>이 기간의 AI 분석이 아직 없습니다</b>'분석 만들기'를 누르면 수집된 게시물과 AI 언급 결과로 보고서를 만듭니다.
+    body = STATIC
+      ? `<div class="empty"><b>이 기간의 AI 분석이 없습니다</b>분석은 매일 이번 주·이번 달 것을 자동으로 만들고, 지난 기간은 만들어진 것만 보관합니다.</div>`
+      : `<div class="empty"><b>이 기간의 AI 분석이 아직 없습니다</b>'분석 만들기'를 누르면 수집된 게시물과 AI 언급 결과로 보고서를 만듭니다.
       ${d.ai ? '' : '<br><span class="sub">AI 모델 키가 없어 규칙 기반으로 작성됩니다.</span>'}</div>`;
   } else {
     const stats = r.stats;

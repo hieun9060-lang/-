@@ -1,8 +1,12 @@
-export class ApiError extends Error {
-  constructor(message, status) { super(message); this.status = status; }
-}
+import { ApiError } from './errors.js';
+import { STATIC } from './mode.js';
+import { staticApi } from './staticapi.js';
 
-export async function api(path, { method = 'GET', body, params } = {}) {
+export { ApiError };
+
+export async function api(path, opts = {}) {
+  if (STATIC) return staticApi(path, opts);
+  const { method = 'GET', body, params } = opts;
   const url = new URL('/api' + path, location.origin);
   for (const [k, v] of Object.entries(params || {})) if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, v);
   const res = await fetch(url, {

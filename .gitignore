@@ -10,3 +10,4 @@ docs/data-demo/
 data/*.db
 data/*.db-*
 .env
+site/

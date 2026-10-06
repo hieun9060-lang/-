@@ -1,0 +1,152 @@
+name: Monitor
+
+# 매일 아침 자동 실행 (GitHub 예약 실행은 UTC 기준이며, 몇 분~1시간 늦어질 수 있습니다)
+#   22:00 UTC = 07:00 KST : 설정 반영 → 채널 수집 → AI 언급 측정 → 대시보드 사이트 배포
+#   00:00 UTC = 09:00 KST : 요약 알림 (GitHub 이슈 / Slack / 이메일)
+on:
+  schedule:
+    - cron: "0 22 * * *"
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "collect = 수집·측정 후 배포, rebuild = 수집 없이 사이트만 다시 만들기, notify = 알림만"
+        type: choice
+        options: [collect, rebuild, notify]
+        default: collect
+  push:
+    paths:
+      - "config/**"
+
+# 같은 시각에 두 번 실행되면 데이터가 서로 덮어쓰이므로 하나씩 차례로 실행합니다.
+concurrency:
+  group: monitor
+  cancel-in-progress: false
+
+permissions:
+  contents: write   # data-store 브랜치에 데이터 파일을 보관
+  issues: write     # 매일 요약 이슈
+
+env:
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  collect:
+    if: >-
+      (github.event_name == 'schedule' && github.event.schedule == '0 22 * * *') ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode != 'notify') ||
+      (github.event_name == 'push' && github.ref_name == github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CF_PROJECT: ${{ vars.CF_PAGES_PROJECT || 'academy-monitor' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      - name: 지난 데이터 불러오기
+        run: |
+          mkdir -p data
+          if git ls-remote --exit-code --heads origin data-store >/dev/null 2>&1; then
+            git fetch -q --depth=1 origin data-store
+            git show FETCH_HEAD:aeo.db > data/aeo.db
+            echo "이전 데이터를 불러왔습니다 ($(du -h data/aeo.db | cut -f1))"
+          else
+            echo "저장된 데이터가 없어 새로 시작합니다."
+          fi
+
+      - name: 수집·측정·사이트 생성
+        run: |
+          extra=""
+          if [ "${{ inputs.mode }}" = "rebuild" ]; then extra="--skip-collect"; fi
+          trigger="schedule"
+          if [ "${{ github.event_name }}" != "schedule" ]; then trigger="manual"; fi
+          # 설정 파일을 고쳐서 실행된 경우에는 AI 질문 한도를 쓰지 않도록 채널 수집만 합니다.
+          kind="all"
+          if [ "${{ github.event_name }}" = "push" ]; then kind="content"; fi
+          python -m aeo_monitor build-site --out site --trigger "$trigger" --kind "$kind" $extra
+
+      - name: 데이터 보관 (data-store 브랜치)
+        if: always()
+        run: |
+          test -f data/aeo.db || { echo "보관할 데이터가 없습니다."; exit 0; }
+          d=$(mktemp -d)
+          cp data/aeo.db "$d/"
+          cd "$d"
+          git init -q -b data-store
+          git config user.name "monitor-bot"
+          git config user.email "monitor-bot@users.noreply.github.com"
+          git add aeo.db
+          git commit -q -m "data $(date -u +%FT%TZ)"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" data-store
+          echo "데이터를 보관했습니다."
+
+      - name: Cloudflare Pages 프로젝트 준비 (처음 한 번만 만들어짐)
+        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
+        continue-on-error: true
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages project create ${{ env.CF_PROJECT }} --production-branch=main
+
+      - name: 대시보드 배포 (Cloudflare Pages)
+        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy site --project-name=${{ env.CF_PROJECT }} --branch=main --commit-dirty=true
+
+      - name: 배포 안내
+        if: env.CLOUDFLARE_API_TOKEN == ''
+        run: echo "::notice::Cloudflare 키가 없어 사이트를 배포하지 않았습니다. README 의 'Cloudflare 연결' 단계를 진행하세요."
+
+      - name: 사이트 파일 보관 (확인용, 7일)
+        uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: site
+          retention-days: 7
+
+  notify:
+    if: >-
+      (github.event_name == 'schedule' && github.event.schedule == '0 0 * * *') ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'notify')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      SITE_URL: ${{ vars.SITE_URL }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      SMTP_FROM: ${{ secrets.SMTP_FROM }}
+      REPORT_EMAIL_TO: ${{ secrets.REPORT_EMAIL_TO }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: 지난 데이터 불러오기
+        run: |
+          mkdir -p data
+          if git ls-remote --exit-code --heads origin data-store >/dev/null 2>&1; then
+            git fetch -q --depth=1 origin data-store
+            git show FETCH_HEAD:aeo.db > data/aeo.db
+          fi
+      - name: 09:00 요약 알림
+        run: python -m aeo_monitor notify-db
