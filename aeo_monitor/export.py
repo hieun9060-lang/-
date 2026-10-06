@@ -1,23 +1,11 @@
-"""인사이트 앱(docs/index.html)이 읽는 JSON 데이터 내보내기.
-
-docs/data/index.json        : 측정일 목록 + 날짜별 요약(추이)
-docs/data/days/<날짜>.json  : 그날의 전체 인사이트
-docs/data/latest.json       : 가장 최근 날짜 (= days/<최신>.json)
-데모 실행은 docs/data-demo/ 에 따로 저장되어 실제 데이터와 섞이지 않습니다 (앱 주소 뒤에 ?demo=1).
-"""
+"""그날의 AI 언급 분석 결과를 화면이 읽는 JSON 구조로 만든다."""
 from __future__ import annotations
 
 import json
 from datetime import datetime
-from pathlib import Path
 
 from .collect import KST
 from .report import ENGINE_LABEL, group_mix
-
-
-def _dump(path: Path, data) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
 
 def build_payload(a: dict, briefing_rule: list[str], briefing_ai: str, ai_by: str, report_files: dict) -> dict:
@@ -55,28 +43,3 @@ def build_payload(a: dict, briefing_rule: list[str], briefing_ai: str, ai_by: st
         "actions": a["actions"], "questions": questions,
         "files": report_files,
     }
-
-
-def export_app_data(docs_dir: Path, a: dict, briefing_rule: list[str], briefing_ai: str, ai_by: str,
-                    report_files: dict) -> Path:
-    base = docs_dir / ("data-demo" if a["run"]["demo"] else "data")
-    payload = build_payload(a, briefing_rule, briefing_ai, ai_by, report_files)
-    day = a["run"]["run_date"]
-    _dump(base / "days" / f"{day}.json", payload)
-
-    idx_path = base / "index.json"
-    try:
-        idx = json.loads(idx_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        idx = {"days": []}
-    k = a["kpi"]
-    entry = {"date": day, "todayRate": k.get("today_rate"), "windowRate": k["target_rate"],
-             "byEngine": {r["key"]: r["rate"] for r in a["by_engine"]}, "officialRate": k["official_cited_rate"],
-             "brandOnlyRate": k["brand_only_rate"], "topAction": a["actions"][0]["title"] if a["actions"] else ""}
-    days = [d for d in idx.get("days", []) if d["date"] != day] + [entry]
-    days.sort(key=lambda d: d["date"])
-    latest = days[-1]["date"]
-    _dump(idx_path, {"target": a["target"], "latest": latest, "days": days})
-    if latest == day:
-        _dump(base / "latest.json", payload)
-    return base

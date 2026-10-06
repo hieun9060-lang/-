@@ -50,6 +50,108 @@ CREATE TABLE IF NOT EXISTS citations (
   cited_in_answer INTEGER,
   mentions_target INTEGER          -- 출처 제목/인용문에 대상 학원이 나오는지
 );
+-- ===== 모니터링 서비스(회사·채널·게시물·설정·작업) =====
+CREATE TABLE IF NOT EXISTS companies (
+  id TEXT PRIMARY KEY,             -- slug (AI 언급 brand_id 와 동일)
+  name TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'competitor',   -- ours | competitor
+  color_idx INTEGER NOT NULL DEFAULT 0,
+  grp TEXT DEFAULT '',             -- 같은 계열(예: etoos) — 자사 계열 캠퍼스 구분용
+  template_name TEXT DEFAULT '',
+  aliases TEXT NOT NULL DEFAULT '[]',        -- JSON: AI 답변에서 이 학원으로 인정하는 표기
+  domains TEXT NOT NULL DEFAULT '[]',        -- JSON: 공식 사이트 도메인 조각
+  near TEXT NOT NULL DEFAULT '[]',           -- JSON: [[A,B],...] 근접 판정
+  near_window INTEGER NOT NULL DEFAULT 12,
+  near_exclude TEXT NOT NULL DEFAULT '[]',
+  track_ai INTEGER NOT NULL DEFAULT 1,       -- AI 챗봇 언급 판정 대상
+  active INTEGER NOT NULL DEFAULT 1,
+  sort INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT
+);
+CREATE TABLE IF NOT EXISTS channels (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  type TEXT NOT NULL,              -- blog | youtube | homepage | rss
+  url TEXT NOT NULL,
+  label TEXT DEFAULT '',
+  active INTEGER NOT NULL DEFAULT 1,
+  status TEXT NOT NULL DEFAULT 'pending',    -- pending | ok | warn | login | error
+  status_msg TEXT DEFAULT '',
+  feed_url TEXT DEFAULT '',        -- 해석된 RSS/Atom 주소
+  last_checked_at TEXT,
+  last_success_at TEXT,
+  item_count INTEGER DEFAULT 0,
+  UNIQUE(company_id, url)
+);
+CREATE TABLE IF NOT EXISTS posts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  channel_id INTEGER REFERENCES channels(id) ON DELETE SET NULL,
+  platform TEXT NOT NULL,          -- blog | youtube | homepage | rss
+  url TEXT NOT NULL,
+  title TEXT NOT NULL,
+  snippet TEXT DEFAULT '',
+  body TEXT DEFAULT '',            -- AI 요약용 본문(최대 4000자)
+  topic TEXT DEFAULT '기타',
+  published_at TEXT,               -- KST ISO. 알 수 없으면 NULL
+  post_date TEXT NOT NULL,         -- 캘린더 기준일(YYYY-MM-DD) = 발행일, 없으면 수집일
+  first_seen_at TEXT NOT NULL,
+  baseline INTEGER NOT NULL DEFAULT 0,       -- 홈페이지 첫 수집분(새 글이 아님)
+  UNIQUE(company_id, url)
+);
+CREATE INDEX IF NOT EXISTS ix_posts_date ON posts(post_date);
+CREATE INDEX IF NOT EXISTS ix_posts_company ON posts(company_id, post_date);
+CREATE TABLE IF NOT EXISTS day_summaries (
+  date TEXT NOT NULL,
+  company_id TEXT NOT NULL,
+  issue TEXT DEFAULT '',
+  summary TEXT DEFAULT '',
+  highlight TEXT DEFAULT '',
+  model TEXT DEFAULT '',
+  created_at TEXT,
+  PRIMARY KEY (date, company_id)
+);
+CREATE TABLE IF NOT EXISTS analysis_reports (
+  kind TEXT NOT NULL,              -- week | month
+  period_start TEXT NOT NULL,
+  period_end TEXT NOT NULL,
+  payload TEXT NOT NULL,           -- JSON(통계 + AI 분석 텍스트)
+  model TEXT DEFAULT '',
+  created_at TEXT,
+  PRIMARY KEY (kind, period_start)
+);
+CREATE TABLE IF NOT EXISTS questions (
+  id TEXT PRIMARY KEY,
+  text TEXT NOT NULL,
+  categories TEXT NOT NULL DEFAULT '[]',
+  origin TEXT NOT NULL DEFAULT 'custom',
+  views INTEGER DEFAULT 0,
+  source_url TEXT DEFAULT '',
+  enabled INTEGER NOT NULL DEFAULT 1,
+  panel INTEGER NOT NULL DEFAULT 0,
+  sort INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS aeo_days (
+  run_date TEXT NOT NULL,
+  demo INTEGER NOT NULL DEFAULT 0,
+  payload TEXT NOT NULL,           -- 그날의 AI 언급 인사이트 전체(JSON)
+  generated_at TEXT,
+  PRIMARY KEY (run_date, demo)
+);
+CREATE TABLE IF NOT EXISTS kv (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS jobs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind TEXT NOT NULL,
+  trigger TEXT NOT NULL DEFAULT 'manual',
+  status TEXT NOT NULL DEFAULT 'running',    -- running | done | error
+  started_at TEXT NOT NULL,
+  finished_at TEXT,
+  progress TEXT DEFAULT '',
+  result TEXT DEFAULT '{}'
+);
 CREATE INDEX IF NOT EXISTS ix_resp_run ON responses(run_id);
 CREATE INDEX IF NOT EXISTS ix_men_resp ON mentions(response_id);
 CREATE INDEX IF NOT EXISTS ix_cit_resp ON citations(response_id);
@@ -57,15 +159,27 @@ CREATE INDEX IF NOT EXISTS ix_cit_resp ON citations(response_id);
 
 
 class Store:
+    _initialized: set = set()  # 프로세스 안에서 스키마는 DB마다 한 번만 만든다
+
     def __init__(self, path: Path):
         path.parent.mkdir(parents=True, exist_ok=True)
-        self.conn = sqlite3.connect(path)
+        fresh = not path.exists()
+        self.conn = sqlite3.connect(path, timeout=30, check_same_thread=False)  # 요청마다 새 연결, 스레드 간 이동만 허용
         self.conn.row_factory = sqlite3.Row
-        self.conn.executescript(SCHEMA)
-        cols = {r[1] for r in self.conn.execute("PRAGMA table_info(responses)")}
-        if "panel" not in cols:  # 이전 버전 DB
-            self.conn.execute("ALTER TABLE responses ADD COLUMN panel INTEGER DEFAULT 0")
-            self.conn.commit()
+        self.conn.execute("PRAGMA journal_mode=WAL")
+        self.conn.execute("PRAGMA busy_timeout=30000")
+        self.conn.execute("PRAGMA foreign_keys=ON")
+        key = str(path.resolve())
+        if fresh or key not in Store._initialized:
+            self.conn.executescript(SCHEMA)
+            cols = {r[1] for r in self.conn.execute("PRAGMA table_info(responses)")}
+            if "panel" not in cols:  # 이전 버전 DB
+                self.conn.execute("ALTER TABLE responses ADD COLUMN panel INTEGER DEFAULT 0")
+                self.conn.commit()
+            Store._initialized.add(key)
+
+    def close(self) -> None:
+        self.conn.close()
 
     def new_run(self, run_date: str, started_at: str, engines: list[str], demo: bool) -> int:
         cur = self.conn.execute(

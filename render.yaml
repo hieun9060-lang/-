@@ -1,0 +1,31 @@
+# Render.com 에서 "New → Blueprint" 로 이 저장소를 연결하면 그대로 배포됩니다.
+# 매일 정해진 시각에 실행되어야 하므로 항상 켜져 있는 유료 플랜(starter 이상)과 디스크가 필요합니다.
+services:
+  - type: web
+    name: academy-monitor
+    runtime: docker
+    plan: starter
+    healthCheckPath: /api/health
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: APP_PASSWORD
+        sync: false            # 배포 화면에서 직접 입력 (8자 이상)
+      - key: SECRET_KEY
+        generateValue: true
+      - key: TRUST_PROXY
+        value: "1"
+      - key: AEO_DATA_DIR
+        value: /data
+      - key: TZ
+        value: Asia/Seoul
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: SLACK_WEBHOOK_URL
+        sync: false

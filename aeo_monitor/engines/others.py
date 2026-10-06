@@ -182,3 +182,17 @@ def gemini_complete_text(prompt: str, system: str, model: str | None = None) -> 
     )
     cand = (resp.json().get("candidates") or [{}])[0]
     return "".join(p.get("text", "") for p in (cand.get("content") or {}).get("parts", []) or []).strip()
+
+
+def openai_complete_text(prompt: str, system: str, model: str | None = None) -> str:
+    """해설·요약용 단순 호출 (검색 없음)."""
+    resp = _post(
+        "https://api.openai.com/v1/responses",
+        headers={"Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}"},
+        json={"model": model or OpenAIEngine.default_model, "instructions": system, "input": prompt},
+    )
+    out = []
+    for item in resp.json().get("output", []) or []:
+        if item.get("type") == "message":
+            out += [p.get("text", "") for p in item.get("content", []) or [] if p.get("type") == "output_text"]
+    return "".join(out).strip()

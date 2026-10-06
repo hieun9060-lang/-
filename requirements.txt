@@ -1,4 +1,10 @@
-anthropic>=0.70
+fastapi>=0.110
+uvicorn>=0.29
+apscheduler>=3.10,<4
+beautifulsoup4>=4.12
+feedparser>=6.0
+itsdangerous>=2.1
 requests>=2.31
 PyYAML>=6.0
 openpyxl>=3.1
+anthropic>=0.70

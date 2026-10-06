@@ -20,7 +20,6 @@ from .analyze import analyze_run
 from .collect import run_collection, today_kst
 from .engines import build_engines
 from .insight import ai_briefing, rule_based
-from .export import export_app_data
 from .report import write_reports
 from .schedule import select_daily, window_days
 from .sources import SourceClassifier
@@ -58,8 +57,6 @@ def build_report(store: Store, run_id: int, settings: dict) -> dict:
     if settings.get("ai_insight", True) and not a["run"]["demo"]:
         ai, ai_by = ai_briefing(a, settings.get("models"), settings.get("insight_engine", "gemini"))
     out = write_reports(store, a, rules, ai, config.DOCS_DIR, _site_url(), ai_by)
-    files = {k: f"reports/{out[k].name}" for k in ("html", "xlsx")}
-    export_app_data(config.DOCS_DIR, a, rules, ai, ai_by, files)
     log.info("리포트: %s", out["html"])
     return out
 
@@ -128,6 +125,24 @@ def cmd_notify(args) -> int:
     return 0
 
 
+def cmd_serve(args) -> int:
+    import uvicorn
+    from .server.app import create_app
+    # X-Forwarded-* 는 TRUST_PROXY=1 일 때만 앱이 직접 해석한다(로그인 잠금 IP 위조 방지)
+    uvicorn.run(create_app(), host=args.host, port=args.port, proxy_headers=False, log_level="info")
+    return 0
+
+
+def cmd_demo_seed(args) -> int:
+    from .demo import seed_demo
+    if "AEO_DATA_DIR" not in os.environ and not args.force:
+        log.error("운영 DB를 보호하기 위해 AEO_DATA_DIR 를 따로 지정하거나 --force 를 붙여야 합니다.")
+        return 2
+    seed_demo(Store(config.DATA_DIR / "aeo.db"))
+    print("데모 데이터를 만들었습니다:", config.DATA_DIR / "aeo.db")
+    return 0
+
+
 def cmd_import(args) -> int:
     from .excel_import import import_excel
     print(import_excel(Path(args.file), config.CONFIG_DIR))
@@ -153,6 +168,13 @@ def main(argv: list[str] | None = None) -> int:
     n = sub.add_parser("notify", help="오늘 리포트 알림 발송")
     n.add_argument("--date")
     n.set_defaults(fn=cmd_notify)
+    sv = sub.add_parser("serve", help="웹 서비스 실행 (대시보드 + 일일 스케줄러)")
+    sv.add_argument("--host", default=os.environ.get("HOST", "0.0.0.0"))
+    sv.add_argument("--port", type=int, default=int(os.environ.get("PORT", "8000")))
+    sv.set_defaults(fn=cmd_serve)
+    ds = sub.add_parser("demo-seed", help="화면 미리보기용 가짜 데이터 생성")
+    ds.add_argument("--force", action="store_true")
+    ds.set_defaults(fn=cmd_demo_seed)
     im = sub.add_parser("import-excel", help="엑셀에서 질문/기준선 가져오기")
     im.add_argument("file")
     im.set_defaults(fn=cmd_import)

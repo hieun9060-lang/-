@@ -7,3 +7,6 @@ data/*.db-journal
 data/demo.db
 docs/reports/demo-*
 docs/data-demo/
+data/*.db
+data/*.db-*
+.env

@@ -3,20 +3,16 @@ from __future__ import annotations
 
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 
 from .config import BrandConfig, Question
 from .detect import detect_group_only, detect_mentions, text_mentions_brand
 from .engines import Engine, EngineResult
 from .sources import SourceClassifier
 from .storage import Store
+from .timeutil import KST, today_kst  # noqa: F401  (다른 모듈이 collect 에서 import)
 
-KST = timezone(timedelta(hours=9))
 log = logging.getLogger(__name__)
-
-
-def today_kst() -> str:
-    return datetime.now(KST).strftime("%Y-%m-%d")
 
 
 def process_result(res: EngineResult, brands: BrandConfig, classifier: SourceClassifier):

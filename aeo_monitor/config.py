@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -90,9 +91,41 @@ def load_settings() -> dict:
     return _load_yaml("settings.yaml")
 
 
-def _is_branded(text: str) -> bool:
-    t = text.replace(" ", "")
-    return "이투스" in t or "etoos" in t.lower()
+def is_branded(text: str, brands: BrandConfig | None = None) -> bool:
+    """질문에 우리 학원(브랜드) 표기가 들어 있는지."""
+    t = re.sub(r"\s+", "", text).lower()
+    keys = ["이투스", "etoos"]
+    if brands and brands.target_id:
+        tgt = brands.target
+        keys = list(tgt.aliases) + [tgt.name] + list(brands.group_aliases)
+        m = re.match(r"^[가-힣A-Za-z]+", tgt.name)
+        if m:
+            keys.append(m.group(0))
+    return any(k and re.sub(r"\s+", "", k).lower() in t for k in keys)
+
+
+def _is_branded(text: str) -> bool:  # 이전 이름 호환
+    return is_branded(text)
+
+
+def template_questions(brands: BrandConfig) -> list[Question]:
+    """question_templates.yaml 의 템플릿 × 대상 학원."""
+    out: list[Question] = []
+    tpl_path = CONFIG_DIR / "question_templates.yaml"
+    if not tpl_path.exists():
+        return out
+    tpl = _load_yaml("question_templates.yaml")
+    scope = tpl.get("brands", "all")
+    known = {b.id: b for b in brands.brands}
+    scoped = brands.brands if scope == "all" else [known[i] for i in scope if i in known]
+    for t in tpl.get("templates", []):
+        if not t.get("enabled", True):
+            continue
+        for b in scoped:
+            out.append(Question(id=f"tpl_{t['id']}__{b.id}", text=t["text"].format(brand=b.template_name or b.name),
+                                categories=t.get("categories", []), origin="template", branded=True,
+                                brand_scope=b.id, template_id=t["id"]))
+    return out
 
 
 def load_questions(brands: BrandConfig | None = None) -> list[Question]:
@@ -103,36 +136,7 @@ def load_questions(brands: BrandConfig | None = None) -> list[Question]:
     for q in raw.get("questions", []):
         if not q.get("enabled", True):
             continue
-        out.append(
-            Question(
-                id=q["id"],
-                text=q["text"],
-                categories=q.get("categories", []),
-                origin=q.get("origin", "community_title"),
-                branded=_is_branded(q["text"]),
-                views=q.get("views", 0) or 0,
-                source_url=q.get("source_url", ""),
-            )
-        )
-
-    tpl_path = CONFIG_DIR / "question_templates.yaml"
-    if tpl_path.exists():
-        tpl = _load_yaml("question_templates.yaml")
-        scope = tpl.get("brands", "all")
-        scoped = brands.brands if scope == "all" else [brands.by_id(i) for i in scope]
-        for t in tpl.get("templates", []):
-            if not t.get("enabled", True):
-                continue
-            for b in scoped:
-                out.append(
-                    Question(
-                        id=f"tpl_{t['id']}__{b.id}",
-                        text=t["text"].format(brand=b.template_name or b.name),
-                        categories=t.get("categories", []),
-                        origin="template",
-                        branded=True,
-                        brand_scope=b.id,
-                        template_id=t["id"],
-                    )
-                )
-    return out
+        out.append(Question(id=q["id"], text=q["text"], categories=q.get("categories", []),
+                            origin=q.get("origin", "community_title"), branded=is_branded(q["text"], brands),
+                            views=q.get("views", 0) or 0, source_url=q.get("source_url", "")))
+    return out + template_questions(brands)

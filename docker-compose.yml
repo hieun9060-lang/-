@@ -1,0 +1,16 @@
+# 자체 서버(VPS·사무실 PC)에서 실행: docker compose up -d
+# .env 파일에 APP_PASSWORD, SECRET_KEY, API 키를 적어 두세요 (.env.example 참고).
+services:
+  monitor:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      AEO_DATA_DIR: /data
+      TRUST_PROXY: "0"       # 앞단에 nginx/Caddy 등 프록시를 두면 "1"
+    ports:
+      - "8000:8000"
+    volumes:
+      - monitor-data:/data
+volumes:
+  monitor-data:

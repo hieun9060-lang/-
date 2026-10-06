@@ -353,10 +353,10 @@ def render_markdown(a: dict, briefing_rule: list[str], briefing_ai: str, report_
     return "\n".join(lines) + "\n"
 
 
-def write_xlsx(store: Store, a: dict, path: Path) -> None:
+def write_xlsx(store: Store, a: dict, path, brands=None) -> None:
     from .analyze import REASONS
     from .config import load_brands
-    brands = load_brands()
+    brands = brands or load_brands()
     wb = openpyxl.Workbook()
     head_fill = PatternFill("solid", fgColor="DDE8F7")
 
